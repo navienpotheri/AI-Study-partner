@@ -17,6 +17,8 @@ const SARVAM_KEY = (process.env.SARVAM_API_KEY || '').trim();
 const SARVAM_MODEL = process.env.SARVAM_MODEL || 'saaras:v4';
 // Email sign-in is optional. Without RESEND_API_KEY the app runs as a guest, and sign-in links are logged to the console for local testing.
 const RESEND_API_KEY = (process.env.RESEND_API_KEY || '').trim();
+// Demo sign-in: name and email sign the student in at once, with no link. For judges and testing only.
+const DEMO_SIGNIN = /^(1|true)$/i.test(process.env.DEMO_SIGNIN || '');
 const MAIL_FROM = process.env.MAIL_FROM || 'Study Partner <onboarding@resend.dev>';
 const SESSION_DAYS = 30;
 const LINK_MINUTES = 15;
@@ -194,6 +196,13 @@ function clampScore(n) {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
+// Scores stay inside the app. Students see a plain phrase, never a number.
+function phraseFor(score) {
+  if (score >= 85) return 'You sound very confident. You are good to go.';
+  if (score >= 60) return "You're getting there. Revise the part that is still missing.";
+  return 'You need to study more on this. Try it again slowly.';
+}
+
 function average(list) {
   return list.length ? list.reduce((s, n) => s + Number(n || 0), 0) / list.length : 0;
 }
@@ -257,6 +266,7 @@ function demoGradeExplain(concept, answer) {
     gotRight: hits.length ? `You named ${hits.slice(0, 3).join(', ')}. Good.` : 'You made a start. Keep going.',
     fix: trap ? trap.correction : missing.length ? `Add the idea of ${missing[0]}.` : 'Nothing to fix. Well done.',
     followUp: trap ? trap.followUp : concept.followUp,
+    feedback: phraseFor(clampScore(score)),
     didYouMean: maybe,
     source: 'demo',
   };
@@ -271,6 +281,7 @@ function demoGradeRecall(concept, answer) {
     passed: score >= RECALL_PASS,
     missing,
     hint: score >= RECALL_PASS ? '' : concept.hint,
+    feedback: phraseFor(score),
     didYouMean: maybe,
     source: 'demo',
   };
@@ -319,7 +330,8 @@ async function claudeGradeExplain(concept, answer, language) {
     'You are a patient older sibling tutoring an Indian government school student in Class 8 Science. ' +
     `The student explains in ${language}; exam terms may be in English. Grade the MEANING, never the ` +
     'pronunciation or grammar. Accept key terms in either language. Never give the answer directly; guide them. ' +
-    'Reply ONLY with JSON: {"score":0-100,"gotRight":"one short sentence","fix":"the specific misconception or missing idea, one short sentence",' +
+    'Reply ONLY with JSON: {"score":0-100,"feedback":"one honest, kind sentence on how the explanation went, with no numbers",' +
+    '"gotRight":"one short sentence","fix":"the specific misconception or missing idea, one short sentence",' +
     '"followUp":"one question that targets the misconception, under 20 words"}. Keep every sentence short.';
   const user =
     `Concept: ${concept.name}\n` +
@@ -601,6 +613,11 @@ async function handleApi(req, res, url) {
     const name = String(body.name || '').trim().slice(0, 30) || 'Student';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJson(res, 400, { error: 'Enter a valid email address.' });
     const emailHash = sha256(email);
+    if (DEMO_SIGNIN) {
+      const demoToken = crypto.randomBytes(24).toString('hex');
+      sessions.set(demoToken, { studentId: `d-${emailHash.slice(0, 24)}`, name, createdAt: Date.now() });
+      return sendJson(res, 200, { token: demoToken, name, demo: true });
+    }
     if (!withinSendLimit(emailHash)) {
       return sendJson(res, 429, { error: 'Too many links requested. Wait ten minutes and try again.' });
     }

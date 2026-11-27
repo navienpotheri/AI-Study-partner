@@ -9,7 +9,7 @@
 <body>
   <header class="top">
     <h1>Study Partner</h1>
-    <span id="mode-badge" class="badge">demo</span>
+    <button id="menu-btn" class="menu-btn" aria-label="Settings">&#8943;</button>
   </header>
 
   <main>
@@ -53,6 +53,7 @@
         <strong id="hero-name">Loading…</strong>
         <span>Explain it in your own words</span>
       </div>
+      <div id="explain-log" class="convo-log"></div>
       <div id="explain-result" class="result" hidden></div>
     </section>
 
@@ -97,6 +98,28 @@
       <div id="auth" class="card account"></div>
     </section>
   </main>
+
+  <div id="menu-panel" class="menu-panel" hidden>
+    <div class="menu-card">
+      <strong>Settings</strong>
+      <label>Home language
+        <div class="menu-row">
+          <select id="menu-language">
+            <option>Hindi</option>
+            <option>Tamil</option>
+            <option>Telugu</option>
+            <option>Kannada</option>
+            <option>Malayalam</option>
+          </select>
+          <button id="menu-lang-save" type="button">Save</button>
+        </div>
+      </label>
+      <p class="muted">About: Study Partner helps students in Indian government schools prepare for exams, by voice or text.</p>
+      <p class="muted">Version: 0.1 (hackathon build)</p>
+      <p class="muted">Updates: this is the latest version.</p>
+      <button id="menu-close" type="button" class="link">Close</button>
+    </div>
+  </div>
 
   <nav class="tabbar" aria-label="Main">
     <button data-go="home" class="active">Home</button>

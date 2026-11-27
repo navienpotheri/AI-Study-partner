@@ -293,3 +293,25 @@ body.fullscreen { padding-bottom: 0; }
   background: var(--card); color: var(--ink);
 }
 .signin-form .primary { width: 100%; box-sizing: border-box; }
+
+/* One-time language choice: hidden once saved; select and Save sit side by side */
+.field[hidden] { display: none; }
+.lang-row { display: flex; gap: 8px; }
+.lang-row select { flex: 1; }
+.lang-row button { min-height: 52px; padding: 0 18px; }
+
+/* Header menu, settings panel, conversation log, and setup text box */
+header.top { position: relative; }
+.menu-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; color: var(--ink); font-size: 28px; min-height: 44px; min-width: 44px; padding: 0; line-height: 1; }
+.menu-panel { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,0.35); display: flex; align-items: flex-start; justify-content: flex-end; padding: 64px 12px 0; box-sizing: border-box; }
+.menu-panel[hidden] { display: none; }
+.menu-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; width: min(320px, 90vw); display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
+.menu-card label { display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.menu-row { display: flex; gap: 8px; }
+.menu-row select { flex: 1; }
+.menu-row button { min-height: 48px; padding: 0 16px; }
+.convo-log { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.convo-log .bub { max-width: 85%; padding: 9px 12px; border-radius: 14px; font-size: 16px; line-height: 1.35; }
+.convo-log .bub.app { background: var(--card); border: 1px solid var(--line); align-self: flex-start; }
+.convo-log .bub.me { background: var(--accent); color: var(--accent-ink); align-self: flex-end; }
+#screen-setup .textform input { min-height: 56px; font-size: 18px; }

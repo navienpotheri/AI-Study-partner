@@ -75,7 +75,14 @@ function speak(text) {
   if (!('speechSynthesis' in window) || !text) return;
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = LANG_CODES[state.language] || 'en-IN';
-  utterance.rate = 0.95;
+  utterance.rate = 1;
+  utterance.pitch = 1.05;
+  // Prefer a natural-sounding voice for the language, when the device has one.
+  const voices = window.speechSynthesis.getVoices();
+  const wanted = (utterance.lang || '').toLowerCase();
+  utterance.voice = voices.find((v) => v.lang.toLowerCase() === wanted && /google|natural|premium/i.test(v.name))
+    || voices.find((v) => v.lang.toLowerCase().startsWith(wanted.slice(0, 2)))
+    || null;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utterance);
 }
@@ -100,14 +107,28 @@ function attachPushToTalk(prefix) {
   recognizer.maxAlternatives = 1;
 
   let heard = null;
+  let errored = '';
   recognizer.onresult = (event) => {
     const best = event.results[0][0];
-    heard = { text: best.transcript, confidence: typeof best.confidence === 'number' ? best.confidence : 1 };
+    // Some browsers report 0 when they are unsure; treat that as "no score", not as "not heard".
+    const confidence = typeof best.confidence === 'number' && best.confidence > 0 ? best.confidence : 1;
+    heard = { text: best.transcript, confidence };
   };
-  recognizer.onerror = () => { heard = null; };
+  recognizer.onerror = (event) => {
+    heard = null;
+    if (event.error === 'not-allowed') errored = 'The microphone is blocked. Allow it for this site, or type below.';
+    else if (event.error === 'no-speech') errored = "I didn't hear anything. Hold the mic and speak, or type below.";
+    else errored = 'The microphone did not work. Try again, or type below.';
+  };
   recognizer.onend = () => {
     mic.classList.remove('listening');
     mic.classList.remove('busy');
+    if (errored) {
+      $(`${prefix}-status`).textContent = errored;
+      errored = '';
+      heard = null;
+      return;
+    }
     handleHeard(prefix, heard);
     heard = null;
   };
@@ -115,6 +136,7 @@ function attachPushToTalk(prefix) {
   const start = (event) => {
     event.preventDefault();
     heard = null;
+    errored = '';
     recognizer.lang = LANG_CODES[state.language] || 'en-IN';
     mic.classList.add('listening');
     $(`${prefix}-status`).textContent = 'Listening… let go when you finish.';
@@ -127,9 +149,8 @@ function attachPushToTalk(prefix) {
     try { recognizer.stop(); } catch (err) { /* ignore */ }
   };
 
-  mic.addEventListener('pointerdown', start);
-  mic.addEventListener('pointerup', stop);
-  mic.addEventListener('pointerleave', stop);
+  // Tap once to start speaking, tap again when you finish. No long-press.
+  mic.addEventListener('click', () => (mic.classList.contains('listening') ? stop() : start({ preventDefault() {} })));
 }
 
 // Low confidence means we do not grade. We show what was heard and ask again.
@@ -207,6 +228,7 @@ function conceptName(conceptId) {
 async function submitAnswer(prefix, text) {
   if (prefix === 'setup') return submitSetup(text);
   if (prefix === 'rapid') return submitRapid(text);
+  if (prefix === 'explain') addLog('me', text);
   const conceptId = state[prefix].conceptId;
   const endpoint = prefix === 'explain' ? '/api/explain' : '/api/recall';
   const status = $(`${prefix}-status`);
@@ -236,16 +258,16 @@ function renderExplain(result) {
   const box = $('explain-result');
   box.hidden = false;
   box.innerHTML = `
-    <div class="score">${result.score}/100</div>
-    <p class="good">${escapeHtml(result.gotRight)}</p>
-    <p class="fix">${escapeHtml(result.fix)}</p>
+    <p class="good">${escapeHtml(result.feedback || result.gotRight)}</p>
     <p><strong>${escapeHtml(result.followUp)}</strong></p>
     ${result.citation ? `<p class="note">Based on: ${escapeHtml(result.citation.concept)}, ${escapeHtml(result.citation.source)}</p>` : ''}
     ${didYouMeanHtml(result)}
     ${result.languageMode ? `<p class="note">Next answer, speak in: ${languageLabel(result.languageMode)}</p>` : ''}
     <p class="note">${result.source === 'claude' ? 'Graded by Claude.' : 'Demo mode: graded by keywords, no AI key set.'}</p>`;
   box.insertAdjacentHTML('beforeend', englishBoxHtml());
-  speak(`${result.gotRight} ${result.fix} ${result.followUp}`);
+  const line = `${result.feedback || result.gotRight} ${result.followUp}`;
+  addLog('app', line);
+  speak(line);
 }
 
 function renderRecall(result) {
@@ -258,7 +280,7 @@ function renderRecall(result) {
     ? '<p class="good">Well recalled. Keep it fresh.</p>'
     : `<p class="fix">Hint: ${escapeHtml(result.hint || '')}</p>`;
   box.innerHTML = `
-    <div class="score">${result.score}/100</div>
+    <p class="good">${escapeHtml(result.feedback || '')}</p>
     ${missing}${hint}${didYouMeanHtml(result)}
     <p class="note">${result.source === 'claude' ? 'Graded by Claude.' : 'Demo mode: graded by keywords, no AI key set.'}</p>`;
   speak(result.passed ? 'Well recalled.' : `Hint. ${result.hint || ''}`);
@@ -333,8 +355,9 @@ function insertExamScreen() {
     <section id="screen-setup" class="screen">
       <button class="back" data-go="home">&larr; Back</button>
       <h2>Set up my exam</h2>
-      <label class="field">
+      <div class="field" id="lang-field">
         <span>Your home language (chosen once)</span>
+        <div class="lang-row">
         <select id="language">
           <option>Hindi</option>
           <option>Tamil</option>
@@ -342,14 +365,15 @@ function insertExamScreen() {
           <option>Kannada</option>
           <option>Malayalam</option>
         </select>
-      </label>
-      <h3>Set up my exam</h3>
+        <button id="lang-save" type="button">Save</button>
+        </div>
+      </div>
       <p class="prompt">Tell me about your exam, in your own words. For example: "I have a quarterly science exam on 12 December, we use this textbook, chapters 3 to 7, and I have prepared about 40 percent."</p>
       <button id="setup-mic" class="mic" aria-label="Hold to speak">&#127897;</button>
       <p class="status" id="setup-status"></p>
       <p class="heard" id="setup-heard"></p>
       <form id="setup-form" class="textform">
-        <input id="setup-text" type="text" placeholder="Or type here" autocomplete="off">
+        <input id="setup-text" type="text" placeholder="Type your exam details here" autocomplete="off">
         <button type="submit">Save</button>
       </form>
       <div id="setup-result" class="result" hidden></div>
@@ -493,6 +517,11 @@ async function requestSignIn(event) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not send the link');
+    if (data.token) {
+      localStorage.setItem('studyPartnerSession', data.token);
+      location.reload();
+      return;
+    }
     note.textContent = data.emailReady
       ? 'Check your inbox. Tap the link within 15 minutes.'
       : 'Email is not set up on this server. The link was printed in the server log.';
@@ -588,7 +617,7 @@ async function submitRapid(text) {
     const box = $('rapid-result');
     box.hidden = false;
     box.innerHTML = `
-      <div class="score">${data.score}/100</div>
+      <p class="good">${escapeHtml(data.feedback || '')}</p>
       <p class="${data.passed ? 'good' : 'fix'}">${data.passed ? 'Good, that is right.' : escapeHtml(`Almost. ${data.hint || ''}`)}</p>
       ${didYouMeanHtml(data)}
       <button id="rapid-next">Next</button>`;
@@ -612,7 +641,7 @@ function rapidSummary() {
   const box = $('rapid-result');
   box.hidden = false;
   box.innerHTML = `
-    <div class="score">${avg}/100</div>
+    <p class="good">${avg >= 80 ? 'You are good to go.' : avg >= 60 ? "You're getting there. Revise the items below." : 'You need to study more on this.'}</p>
     <p>${review.length ? `Review: ${escapeHtml(review.join(', '))}.` : 'Nothing to review. Well done.'}</p>
     <p class="note">Scores are kept, and review times adjust to how you did.</p>`;
   speak(review.length ? `Review ${review.join(', ')}.` : 'Nothing to review. Well done.');
@@ -651,9 +680,8 @@ function attachSarvamPushToTalk(prefix) {
     recorder.stop();
   };
 
-  mic.addEventListener('pointerdown', start);
-  mic.addEventListener('pointerup', stop);
-  mic.addEventListener('pointerleave', stop);
+  // Tap once to start speaking, tap again when you finish. No long-press.
+  mic.addEventListener('click', () => (mic.classList.contains('listening') ? stop() : start({ preventDefault() {} })));
 }
 
 async function transcribe(prefix, blob) {
@@ -739,6 +767,36 @@ function sparklineSvg(history) {
     </div>`;
 }
 
+// Conversation log under Explain: every app reply and every student reply appears as text.
+function addLog(role, text) {
+  const log = $('explain-log');
+  if (!log || !text) return;
+  log.insertAdjacentHTML('beforeend', `<div class="bub ${role === 'me' ? 'me' : 'app'}">${escapeHtml(text)}</div>`);
+  log.scrollTop = log.scrollHeight;
+}
+
+// Settings menu (top right): home language, about, version, updates.
+$('menu-btn').addEventListener('click', () => {
+  $('menu-language').value = state.language;
+  $('menu-panel').hidden = false;
+});
+$('menu-close').addEventListener('click', () => { $('menu-panel').hidden = true; });
+$('menu-lang-save').addEventListener('click', () => {
+  state.language = $('menu-language').value;
+  localStorage.setItem('studyPartnerLanguage', state.language);
+  const setupLanguage = document.getElementById('language');
+  if (setupLanguage) setupLanguage.value = state.language;
+  $('menu-panel').hidden = true;
+});
+
+// The home language is chosen once: Save stores it and hides the choice.
+document.addEventListener('click', (event) => {
+  if (event.target.id !== 'lang-save') return;
+  state.language = $('language').value;
+  localStorage.setItem('studyPartnerLanguage', state.language);
+  $('lang-field').hidden = true;
+});
+
 // ---------- start ----------
 
 // The language is chosen once, on the Setup page, and remembered.
@@ -753,11 +811,9 @@ document.addEventListener('change', (event) => {
     const res = await fetch('/api/status');
     const status = await res.json();
     state.stt = status.stt;
-    const grading = status.mode === 'claude' ? `Claude · ${status.model}` : 'demo mode';
-    const speech = status.stt === 'sarvam' ? 'Sarvam speech' : 'browser speech';
-    $('mode-badge').textContent = `${grading} · ${speech}`;
+    state.mode = status.mode;
   } catch (err) {
-    $('mode-badge').textContent = 'offline';
+    // The app still works without the status check.
   }
   setupAuth();
   try {
@@ -767,7 +823,10 @@ document.addEventListener('change', (event) => {
     // Keep the default language if the server is unreachable.
   }
   insertExamScreen();
+  const savedLanguage = localStorage.getItem('studyPartnerLanguage');
+  if (savedLanguage) state.language = savedLanguage;
   $('language').value = state.language;
+  if (savedLanguage) $('lang-field').hidden = true;
   await loadChapter();
   attachPushToTalk('explain');
   attachPushToTalk('recall');

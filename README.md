@@ -78,3 +78,7 @@ Only a hashed email address is stored, and each link works once and expires afte
 3. Attach a Railway volume at `/app/data`, so progress survives redeploys.
 4. Set a spending limit on the Anthropic and Sarvam accounts before you share the link.
 
+
+## For judges: demo sign-in
+
+To try the app, enter any first name and email address on the sign-in page and tap **Send me a link**. You are signed in straight away, with no email to check. The live link runs with `DEMO_SIGNIN=true`. Real students, once the app is in pilot, use the email link instead.
