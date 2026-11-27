@@ -13,8 +13,27 @@
   </header>
 
   <main>
-    <!-- Home -->
+    <!-- Home: one clear next step, then the exam at a glance, then the four ways to study -->
     <section id="screen-home" class="screen active">
+      <div class="strip" aria-label="Exam at a glance">
+        <div><span id="strip-days">-</span><small>days to exam</small></div>
+        <div><span id="strip-coverage">-</span><small>syllabus covered</small></div>
+        <div><span id="strip-due">-</span><small>due today</small></div>
+      </div>
+
+      <button class="hero" data-go="continue">
+        <small>Continue</small>
+        <strong id="hero-name">Loading…</strong>
+        <span>Explain this next, in your own words</span>
+      </button>
+
+      <div class="cards">
+        <button class="card-btn" data-go="explain"><span class="ico" aria-hidden="true">&#127897;</span>Explain</button>
+        <button class="card-btn" data-go="recall"><span class="ico" aria-hidden="true">&#129504;</span>Recall</button>
+        <button class="card-btn" data-go="rapid"><span class="ico" aria-hidden="true">&#9889;</span>Rapid-fire</button>
+        <button class="card-btn" data-go="dashboard"><span class="ico" aria-hidden="true">&#128197;</span>My exam</button>
+      </div>
+
       <label class="field">
         <span>Your home language</span>
         <select id="language">
@@ -26,12 +45,6 @@
         </select>
       </label>
       <p id="chapter-title" class="muted"></p>
-      <div class="menu">
-        <button class="big" data-go="explain">Start studying</button>
-        <button class="big" data-go="recall">Practise recall</button>
-        <button class="big" data-go="dashboard">My exam</button>
-        <button class="big disabled" disabled title="Coming next">Rapid-fire test (next)</button>
-      </div>
     </section>
 
     <!-- Explain and recall share the same mic and text input -->
@@ -86,6 +99,12 @@
       </div>
     </section>
   </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <button data-go="home" class="active">Home</button>
+    <button data-go="dashboard">My exam</button>
+    <button data-go="setup">Set up</button>
+  </nav>
 
   <script src="/app.js"></script>
 </body>

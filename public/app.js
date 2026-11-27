@@ -50,6 +50,8 @@ window.fetch = (input, opts = {}) => {
 
 function show(screen) {
   if (screen === 'continue') return continueStudy();
+  document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.go === screen));
+  if (screen === 'home') renderHome();
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === `screen-${screen}`));
   if (screen === 'dashboard') loadDashboard();
   window.scrollTo(0, 0);
@@ -320,7 +322,6 @@ function speechMeta(text, promptedAt) {
 // ---------- exam setup ----------
 
 function insertExamScreen() {
-  document.querySelector('.menu').insertAdjacentHTML('afterbegin', '<button class="big" data-go="setup">Set up my exam</button>');
   document.querySelector('main').insertAdjacentHTML('beforeend', `
     <section id="screen-setup" class="screen">
       <button class="back" data-go="home">&larr; Back</button>
@@ -343,9 +344,6 @@ function insertExamScreen() {
     input.value = '';
     submitSetup(text);
   });
-  document.querySelector('.menu .disabled')?.remove();
-  document.querySelector('.menu').insertAdjacentHTML('afterbegin', '<button class="big" data-go="continue">Continue</button>');
-  document.querySelector('.menu').insertAdjacentHTML('beforeend', '<button class="big" data-go="rapid">Rapid-fire test</button>');
   document.querySelector('main').insertAdjacentHTML('beforeend', `
     <section id="screen-rapid" class="screen">
       <button class="back" data-go="home">&larr; Back</button>
@@ -428,6 +426,24 @@ function renderExtra(d) {
       <li>Last 14 days: ${d.history.length ? d.history.map((h) => `${h.day.slice(5)} ${h.answers} answer${h.answers === 1 ? '' : 's'}, avg ${h.avgScore}`).join(' · ') : 'no answers yet'}</li>
       <li>${escapeHtml(d.exam.subject)}, Class ${d.exam.class}, ${d.daysLeft} days left${d.exam.preparedPct !== null ? `. You said you are ${d.exam.preparedPct}% prepared.` : '.'}</li>
     </ul>`;
+}
+
+// ---------- home: at-a-glance strip and the Continue card ----------
+
+async function renderHome() {
+  try {
+    const [d, due] = await Promise.all([
+      fetch('/api/dashboard').then((r) => r.json()),
+      fetch('/api/due').then((r) => r.json()),
+    ]);
+    $('strip-days').textContent = d.daysLeft;
+    $('strip-coverage').textContent = `${d.coverage.pct}%`;
+    $('strip-due').textContent = d.due;
+    const next = due.due[0] || state.concepts[0];
+    $('hero-name').textContent = next ? next.name : 'Start with any concept';
+  } catch (err) {
+    $('hero-name').textContent = 'Start studying';
+  }
 }
 
 // ---------- continue, rapid-fire, did-you-mean ----------
