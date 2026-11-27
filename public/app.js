@@ -55,6 +55,7 @@ function show(screen) {
   if (screen === 'continue') return continueStudy();
   document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.go === screen));
   document.body.classList.toggle('no-tabs', screen === 'signin');
+  document.body.classList.toggle('fullscreen', screen === 'explain');
   if (screen === 'home') renderHome();
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === `screen-${screen}`));
   if (screen === 'dashboard') loadDashboard();
@@ -190,6 +191,7 @@ function selectConcept(prefix, conceptId) {
   $(`${prefix}-heard`).textContent = '';
   if (prefix === 'explain') {
     $('explain-prompt').textContent = `Explain "${conceptName(conceptId)}" in your own words.`;
+    $('hero-name').textContent = conceptName(conceptId);
   } else {
     $('recall-prompt').textContent = `Say the definition of "${conceptName(conceptId)}" from memory.`;
   }

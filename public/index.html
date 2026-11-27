@@ -29,17 +29,11 @@
     <!-- Home: four ways to study, then the next concept -->
     <section id="screen-home" class="screen active">
       <div class="cards">
-        <button class="card-btn" data-go="explain"><span class="ico" aria-hidden="true">&#127897;</span>Explain</button>
-        <button class="card-btn" data-go="recall"><span class="ico" aria-hidden="true">&#129504;</span>Recall</button>
-        <button class="card-btn" data-go="rapid"><span class="ico" aria-hidden="true">&#9889;</span>Rapid-fire</button>
-        <button class="card-btn" data-go="dashboard"><span class="ico" aria-hidden="true">&#128197;</span>My exam</button>
+        <button class="card-btn tint-explain" data-go="explain"><span class="ico" aria-hidden="true">&#127897;</span><span class="name">Explain</span><span class="sub">Say it in your own words</span></button>
+        <button class="card-btn tint-recall" data-go="recall"><span class="ico" aria-hidden="true">&#129504;</span><span class="name">Recall</span><span class="sub">Say it from memory</span></button>
+        <button class="card-btn tint-rapid" data-go="rapid"><span class="ico" aria-hidden="true">&#9889;</span><span class="name">Rapid-fire</span><span class="sub">Quick questions, weakest first</span></button>
+        <button class="card-btn tint-exam" data-go="dashboard"><span class="ico" aria-hidden="true">&#128197;</span><span class="name">My exam</span><span class="sub">Days left and progress</span></button>
       </div>
-
-      <button class="hero" data-go="continue">
-        <small>Next up</small>
-        <strong id="hero-name">Loading…</strong>
-        <span>Explain it in your own words</span>
-      </button>
     </section>
 
     <!-- Explain -->
@@ -55,6 +49,11 @@
         <input id="explain-text" type="text" placeholder="Or type here" autocomplete="off">
         <button type="submit">Send</button>
       </form>
+      <div class="blurb">
+        <small>Next up</small>
+        <strong id="hero-name">Loading…</strong>
+        <span>Explain it in your own words</span>
+      </div>
       <div id="explain-result" class="result" hidden></div>
     </section>
 
