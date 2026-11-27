@@ -15,9 +15,13 @@ const API_KEY = (process.env.ANTHROPIC_API_KEY || '').trim();
 const MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-5-5';
 const SARVAM_KEY = (process.env.SARVAM_API_KEY || '').trim();
 const SARVAM_MODEL = process.env.SARVAM_MODEL || 'saaras:v4';
-// Google sign-in is optional. Without a client ID the app runs as a guest, which is the demo default.
-const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+// Email sign-in is optional. Without RESEND_API_KEY the app runs as a guest, and sign-in links are logged to the console for local testing.
+const RESEND_API_KEY = (process.env.RESEND_API_KEY || '').trim();
+const MAIL_FROM = process.env.MAIL_FROM || 'Study Partner <onboarding@resend.dev>';
 const SESSION_DAYS = 30;
+const LINK_MINUTES = 15;
+const pendingLinks = new Map(); // hash of one-time token -> { emailHash, name, expires }
+const sendLimits = new Map(); // email hash -> timestamps of recent requests
 // token -> { studentId, name, createdAt }. Only a hashed Google id is kept; no email is stored.
 const sessions = new Map();
 const RECALL_PASS = 70;
@@ -91,18 +95,44 @@ function studentIdFrom(req) {
   return /^[A-Za-z0-9-]{8,64}$/.test(raw) ? raw : 'guest';
 }
 
-// Checks a Google ID token with Google's tokeninfo endpoint and returns only what we need.
-async function verifyGoogleCredential(credential) {
-  const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
-  if (!res.ok) throw new Error('Google did not accept this sign-in.');
-  const info = await res.json();
-  if (info.aud !== GOOGLE_CLIENT_ID) throw new Error('This sign-in was made for a different app.');
-  if (String(info.email_verified) !== 'true') throw new Error('Your Google email is not verified.');
-  if (Number(info.exp) * 1000 < Date.now()) throw new Error('This sign-in has expired. Try again.');
-  return {
-    studentId: `g-${crypto.createHash('sha256').update(String(info.sub)).digest('hex').slice(0, 24)}`,
-    name: info.given_name || 'Student',
-  };
+function sha256(text) {
+  return crypto.createHash('sha256').update(text).digest('hex');
+}
+
+function baseUrl(req) {
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  return `${proto}://${req.headers.host}`;
+}
+
+// Sends the confirmation link through Resend. With no key, the link goes to the console (local testing only).
+async function sendSignInEmail(to, link) {
+  if (!RESEND_API_KEY) {
+    console.log(`[sign-in link, local testing only] ${link}`);
+    return false;
+  }
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${RESEND_API_KEY}` },
+    body: JSON.stringify({
+      from: MAIL_FROM,
+      to: [to],
+      subject: 'Confirm your Study Partner sign-in',
+      html: `<p>Tap the link to confirm and start studying:</p>
+             <p><a href="${link}">Confirm my sign-in</a></p>
+             <p>The link works once and expires in ${LINK_MINUTES} minutes. If you did not ask for it, ignore this email.</p>`,
+    }),
+  });
+  if (!res.ok) throw new Error(`Email sending failed with status ${res.status}`);
+  return true;
+}
+
+function withinSendLimit(emailHash) {
+  const now = Date.now();
+  const recent = (sendLimits.get(emailHash) || []).filter((t) => now - t < 10 * 60000);
+  if (recent.length >= 3) return false;
+  recent.push(now);
+  sendLimits.set(emailHash, recent);
+  return true;
 }
 
 // ---------- helpers ----------
@@ -544,7 +574,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/config') {
-    return sendJson(res, 200, { googleClientId: GOOGLE_CLIENT_ID || null });
+    return sendJson(res, 200, { signInReady: true, emailReady: Boolean(RESEND_API_KEY) });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/me') {
@@ -559,17 +589,43 @@ async function handleApi(req, res, url) {
     });
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/auth/google') {
-    if (!GOOGLE_CLIENT_ID) return sendJson(res, 404, { error: 'Google sign-in is not set up on this server.' });
+  // Step 1: the student enters an email and first name. We email a one-time link.
+  if (req.method === 'POST' && url.pathname === '/api/auth/request') {
     const body = await readJsonBody(req);
-    try {
-      const { studentId: id, name } = await verifyGoogleCredential(String(body.credential || ''));
-      const token = crypto.randomBytes(24).toString('hex');
-      sessions.set(token, { studentId: id, name, createdAt: Date.now() });
-      return sendJson(res, 200, { token, name });
-    } catch (err) {
-      return sendJson(res, 401, { error: err.message });
+    const email = String(body.email || '').trim().toLowerCase().slice(0, 120);
+    const name = String(body.name || '').trim().slice(0, 30) || 'Student';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJson(res, 400, { error: 'Enter a valid email address.' });
+    const emailHash = sha256(email);
+    if (!withinSendLimit(emailHash)) {
+      return sendJson(res, 429, { error: 'Too many links requested. Wait ten minutes and try again.' });
     }
+    const token = crypto.randomBytes(24).toString('hex');
+    pendingLinks.set(sha256(token), { emailHash, name, expires: Date.now() + LINK_MINUTES * 60000 });
+    try {
+      await sendSignInEmail(email, `${baseUrl(req)}/?verify=${token}`);
+    } catch (err) {
+      console.error(err.message);
+      return sendJson(res, 502, { error: 'We could not send the email. Try again in a few minutes.' });
+    }
+    return sendJson(res, 200, { sent: true, emailReady: Boolean(RESEND_API_KEY) });
+  }
+
+  // Step 2: the student taps the link, and the page sends the token here. The token works once.
+  if (req.method === 'POST' && url.pathname === '/api/auth/verify') {
+    const body = await readJsonBody(req);
+    const key = sha256(String(body.token || ''));
+    const pending = pendingLinks.get(key);
+    pendingLinks.delete(key);
+    if (!pending || pending.expires < Date.now()) {
+      return sendJson(res, 401, { error: 'This link has expired or was already used. Request a new one.' });
+    }
+    const sessionToken = crypto.randomBytes(24).toString('hex');
+    sessions.set(sessionToken, {
+      studentId: `e-${pending.emailHash.slice(0, 24)}`,
+      name: pending.name,
+      createdAt: Date.now(),
+    });
+    return sendJson(res, 200, { token: sessionToken, name: pending.name });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/auth/logout') {

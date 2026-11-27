@@ -9,7 +9,8 @@
       - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-haiku-5-5}
       - SARVAM_API_KEY=${SARVAM_API_KEY:-}
       - SARVAM_MODEL=${SARVAM_MODEL:-saaras:v4}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - MAIL_FROM=${MAIL_FROM:-Study Partner <onboarding@resend.dev>}
     volumes:
       # Keeps student progress on the host between restarts.
       - ./data:/app/data

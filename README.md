@@ -62,19 +62,19 @@ Each browser gets its own student id, kept in local storage. Progress, the exam 
 - `public/`: the web app (HTML, CSS, plain JavaScript).
 - `docker-compose.yml` and `Dockerfile`: the one-command setup.
 
-## Optional: Google sign-in
+## Optional: email sign-in
 
-Students who sign in with Google keep their progress across devices. Guests still work, with progress kept on one browser.
+Students sign in with their email address. We send a one-time link, and the student taps it to confirm. Guests still work, with progress kept on one browser.
 
-1. In Google Cloud Console, create an OAuth client ID (type: Web application). Add your app's address (for example `http://localhost:3000`, or the Railway address) under Authorised JavaScript origins.
-2. Put the client ID in `.env` as `GOOGLE_CLIENT_ID=...`, or set it as a host variable.
-3. Restart the app. The sign-in button appears in the header.
+1. Create a Resend account and an API key (https://resend.com/api-keys).
+2. Put the key in `.env` as `RESEND_API_KEY=...`. Set `MAIL_FROM` to a sender on your verified domain (see the Resend domain guide: https://resend.com/docs/dashboard/domains/introduction).
+3. Restart the app. Without a key, the link is printed in the server log, which is for local testing only.
 
-Only a hashed Google account id is stored, and no email address is kept. Students under 13 cannot make their own Google account; see the parent-managed option in the project notes before running a pilot.
-
+Only a hashed email address is stored, and each link works once and expires after 15 minutes. Until a domain is verified, Resend sends only to the account owner's address.
 ## Hosting the live link on Railway
 
 1. Connect the GitHub repo to a new Railway project. Railway builds from the `Dockerfile`.
 2. Add variables: `ANTHROPIC_API_KEY`, `SARVAM_API_KEY`, `GOOGLE_CLIENT_ID`. Leave any key out to run that feature in demo mode.
 3. Attach a Railway volume at `/app/data`, so progress survives redeploys.
 4. Set a spending limit on the Anthropic and Sarvam accounts before you share the link.
+

@@ -431,49 +431,63 @@ function renderExtra(d) {
     </ul>`;
 }
 
-// ---------- Google sign-in (optional; guests keep working) ----------
+// ---------- Email sign-in: type email and name, tap the link we send ----------
 
 async function setupAuth() {
   const box = $('auth');
-  let clientId = null;
-  try {
-    clientId = (await (await fetch('/api/config')).json()).googleClientId;
-  } catch (err) {
-    return;
+  // The student may have arrived from the confirmation link.
+  const token = new URLSearchParams(location.search).get('verify');
+  if (token) {
+    try {
+      const res = await nativeFetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-student-id': STUDENT_ID },
+        body: JSON.stringify({ token }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      localStorage.setItem('studyPartnerSession', data.token);
+    } catch (err) {
+      box.textContent = err.message;
+    }
+    history.replaceState(null, '', '/');
   }
+
   const me = await (await fetch('/api/me')).json().catch(() => ({}));
   if (me.signedIn) {
     box.innerHTML = `<span class="muted">Hi, ${escapeHtml(me.name)}</span> <button id="signout" class="link">Sign out</button>`;
     $('signout').addEventListener('click', signOut);
     return;
   }
-  if (!clientId) return; // Not configured: the app stays in guest mode.
-  waitForGoogle(() => {
-    google.accounts.id.initialize({ client_id: clientId, callback: onGoogleCredential });
-    google.accounts.id.renderButton(box, { theme: 'outline', size: 'medium', text: 'signin_with' });
-  });
+  box.innerHTML = `
+    <button id="signin-open" class="link">Sign in</button>
+    <form id="signin-form" class="signin" hidden>
+      <input id="signin-name" type="text" placeholder="First name" autocomplete="given-name">
+      <input id="signin-email" type="email" placeholder="Email" autocomplete="email" required>
+      <button type="submit">Send link</button>
+      <p id="signin-note" class="note"></p>
+    </form>`;
+  $('signin-open').addEventListener('click', () => { $('signin-form').hidden = false; });
+  $('signin-form').addEventListener('submit', requestSignIn);
 }
 
-// The Google script loads asynchronously, so wait for it before drawing the button.
-function waitForGoogle(then, tries = 0) {
-  if (window.google && google.accounts && google.accounts.id) return then();
-  if (tries > 50) return;
-  setTimeout(() => waitForGoogle(then, tries + 1), 200);
-}
-
-async function onGoogleCredential(response) {
+async function requestSignIn(event) {
+  event.preventDefault();
+  const note = $('signin-note');
+  note.textContent = 'Sending…';
   try {
-    const res = await nativeFetch('/api/auth/google', {
+    const res = await nativeFetch('/api/auth/request', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-student-id': STUDENT_ID },
-      body: JSON.stringify({ credential: response.credential }),
+      body: JSON.stringify({ email: $('signin-email').value, name: $('signin-name').value }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Sign-in failed');
-    localStorage.setItem('studyPartnerSession', data.token);
-    location.reload();
+    if (!res.ok) throw new Error(data.error || 'Could not send the link');
+    note.textContent = data.emailReady
+      ? 'Check your inbox. Tap the link within 15 minutes.'
+      : 'Email is not set up on this server. The link was printed in the server log.';
   } catch (err) {
-    $('auth').textContent = err.message;
+    note.textContent = err.message;
   }
 }
 
