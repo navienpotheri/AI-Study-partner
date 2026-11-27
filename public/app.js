@@ -14,6 +14,7 @@ const MAX_VOICE_FAILURES = 2;   // after this many, nudge toward typing
 const state = {
   language: 'Hindi',
   stt: 'browser',
+  sttFailed: false,
   concepts: [],
   explain: { conceptId: null, failures: 0 },
   recall: { conceptId: null, failures: 0 },
@@ -52,7 +53,7 @@ window.fetch = (input, opts = {}) => {
 // ---------- screens ----------
 
 function show(screen) {
-  if (screen === 'continue') return continueStudy();
+  if (screen === 'continue' || screen === 'today') return continueStudy();
   document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.go === screen));
   document.body.classList.toggle('no-tabs', screen === 'signin');
   document.body.classList.toggle('fullscreen', screen === 'explain');
@@ -150,7 +151,7 @@ function attachPushToTalk(prefix) {
   };
 
   // Tap once to start speaking, tap again when you finish. No long-press.
-  mic.addEventListener('click', () => (mic.classList.contains('listening') ? stop() : start({ preventDefault() {} })));
+  mic.addEventListener('click', () => toggleMic(prefix, mic, start, stop));
 }
 
 // Low confidence means we do not grade. We show what was heard and ask again.
@@ -213,6 +214,8 @@ function selectConcept(prefix, conceptId) {
   if (prefix === 'explain') {
     $('explain-prompt').textContent = `Explain "${conceptName(conceptId)}" in your own words.`;
     $('hero-name').textContent = conceptName(conceptId);
+    $('cell-title').textContent = conceptName(conceptId);
+    $('cell-def').textContent = (state.concepts.find((c) => c.id === conceptId) || {}).definition || '';
   } else {
     $('recall-prompt').textContent = `Say the definition of "${conceptName(conceptId)}" from memory.`;
   }
@@ -321,8 +324,8 @@ async function loadDashboard() {
   $('d-coverage').textContent = `${d.coverage.practised}/${d.coverage.total}`;
   $('d-mastery').textContent = `${d.mastery}%`;
   $('d-retention').textContent = `${d.retention}%`;
-  $('d-readiness').textContent = `${d.readiness.score}`;
-  $('d-range').textContent = `Likely between ${d.readiness.low} and ${d.readiness.high}. ${d.readiness.label}`;
+  $('d-readiness').textContent = `${d.readiness.score}%`;
+  $('d-range').textContent = `Your confidence is likely between ${d.readiness.low}% and ${d.readiness.high}%. ${d.readiness.label}`;
   const plan = $('d-plan');
   plan.innerHTML = '';
   (d.todayPlan.length ? d.todayPlan : ['All caught up. Try a recall check.']).forEach((item) => {
@@ -647,6 +650,59 @@ function rapidSummary() {
   speak(review.length ? `Review ${review.join(', ')}.` : 'Nothing to review. Well done.');
 }
 
+// ---------- Mic control: tap to start, tap to finish, and fall back to the phone's speech if Sarvam fails ----------
+
+let stopFallback = null;
+
+function toggleMic(prefix, mic, start, stop) {
+  if (stopFallback) {
+    stopFallback();
+    return;
+  }
+  if (state.sttFailed && Recognition) {
+    listenWithPhoneSpeech(prefix, mic);
+    return;
+  }
+  if (mic.classList.contains('listening')) stop();
+  else start({ preventDefault() {} });
+}
+
+function listenWithPhoneSpeech(prefix, mic) {
+  const status = $(`${prefix}-status`);
+  const recognizer = new Recognition();
+  recognizer.lang = LANG_CODES[state.language] || 'en-IN';
+  recognizer.interimResults = false;
+  recognizer.maxAlternatives = 1;
+  let heard = null;
+  let errored = '';
+  recognizer.onresult = (event) => {
+    const best = event.results[0][0];
+    heard = { text: best.transcript, confidence: typeof best.confidence === 'number' && best.confidence > 0 ? best.confidence : 1 };
+  };
+  recognizer.onerror = (event) => {
+    errored = event.error === 'not-allowed'
+      ? 'The microphone is blocked. Allow it for this site, or type below.'
+      : event.error === 'no-speech'
+        ? "I didn't hear anything. Tap the mic and speak, or type below."
+        : 'The microphone did not work. Try again, or type below.';
+  };
+  recognizer.onend = () => {
+    stopFallback = null;
+    mic.classList.remove('listening');
+    if (errored) {
+      status.textContent = errored;
+      return;
+    }
+    handleHeard(prefix, heard);
+  };
+  stopFallback = () => {
+    try { recognizer.stop(); } catch (err) { /* already stopped */ }
+  };
+  mic.classList.add('listening');
+  status.textContent = 'Listening… tap the mic again when you finish.';
+  recognizer.start();
+}
+
 // ---------- Sarvam recording (used when the server has a Sarvam key) ----------
 
 function attachSarvamPushToTalk(prefix) {
@@ -681,7 +737,7 @@ function attachSarvamPushToTalk(prefix) {
   };
 
   // Tap once to start speaking, tap again when you finish. No long-press.
-  mic.addEventListener('click', () => (mic.classList.contains('listening') ? stop() : start({ preventDefault() {} })));
+  mic.addEventListener('click', () => toggleMic(prefix, mic, start, stop));
 }
 
 async function transcribe(prefix, blob) {
@@ -699,7 +755,9 @@ async function transcribe(prefix, blob) {
     handleHeard(prefix, { text: data.transcript, confidence: data.probability ?? 1 });
   } catch (err) {
     mic.classList.remove('busy');
-    status.textContent = err.message;
+    // Speech service is down: switch to the phone's own speech for the rest of this visit.
+    state.sttFailed = true;
+    status.textContent = "Speech service is down, so I've switched to your phone's speech. Tap the mic and speak again.";
   }
 }
 

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -31,32 +31,34 @@
         <button class="card-btn tint-explain" data-go="explain"><span class="ico" aria-hidden="true">&#127897;</span><span class="name">Explain</span><span class="sub">Say it in your own words</span></button>
         <button class="card-btn tint-recall" data-go="recall"><span class="ico" aria-hidden="true">&#129504;</span><span class="name">Recall</span><span class="sub">Say it from memory</span></button>
         <button class="card-btn tint-rapid" data-go="rapid"><span class="ico" aria-hidden="true">&#9889;</span><span class="name">Rapid-fire</span><span class="sub">Quick questions, weakest first</span></button>
-        <button class="card-btn tint-exam" data-go="dashboard"><span class="ico" aria-hidden="true">&#128197;</span><span class="name">My exam</span><span class="sub">Days left and progress</span></button>
+        <button class="card-btn tint-exam" data-go="today"><span class="ico" aria-hidden="true">&#128214;</span><span class="name">Today</span><span class="sub">Today's items from your plan</span></button>
       </div>
     </section>
 
-    <!-- Explain -->
+    <!-- Explain: a conversation. Replies come in as text; type or speak from the bar at the bottom. -->
     <section id="screen-explain" class="screen">
-      <button class="back" data-go="home">&larr; Back</button>
-      <h2 id="explain-heading">Explain a concept</h2>
-      <div class="chips" id="explain-chips"></div>
-      <p class="prompt" id="explain-prompt">Tap the mic and explain this in your own words.</p>
-      <button id="explain-mic" class="mic" aria-label="Hold to speak">&#127897;</button>
-      <p class="status" id="explain-status"></p>
-      <p class="heard" id="explain-heard"></p>
-      <form id="explain-form" class="textform">
-        <input id="explain-text" type="text" placeholder="Or type here" autocomplete="off">
-        <button type="submit">Send</button>
-      </form>
-      <div class="blurb">
-        <small>Next up</small>
-        <strong id="hero-name">Loading…</strong>
-        <span>Explain it in your own words</span>
+      <div class="ex-top">
+        <button class="back" data-go="home">&larr; Back</button>
+        <span class="concept-tag" id="hero-name">Cell</span>
       </div>
+      <div class="chips" id="explain-chips"></div>
+      <div class="cell-card">
+        <small>Concept</small>
+        <strong id="cell-title">Cell</strong>
+        <p id="cell-def" class="def"></p>
+        <div class="diagram-slot">Diagram: coming soon</div>
+      </div>
+      <p id="explain-prompt" class="prompt" hidden></p>
       <div id="explain-log" class="convo-log"></div>
       <div id="explain-result" class="result" hidden></div>
+      <p class="status" id="explain-status"></p>
+      <p class="heard" id="explain-heard"></p>
+      <form id="explain-form" class="ex-bar">
+        <button id="explain-mic" class="mic-small" type="button" aria-label="Tap to speak">&#127897;</button>
+        <input id="explain-text" type="text" placeholder="Type or speak your answer" autocomplete="off">
+        <button type="submit" class="send">Send</button>
+      </form>
     </section>
-
     <!-- Recall -->
     <section id="screen-recall" class="screen">
       <button class="back" data-go="home">&larr; Back</button>
@@ -87,7 +89,7 @@
         <div class="tile"><span id="d-retention">-</span><small>retention</small></div>
       </div>
       <div class="card">
-        <h3>Readiness</h3>
+        <h3>Confidence to do well</h3>
         <p class="big-number" id="d-readiness">-</p>
         <p class="muted" id="d-range"></p>
       </div>

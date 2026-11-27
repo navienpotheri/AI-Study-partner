@@ -315,3 +315,21 @@ header.top { position: relative; }
 .convo-log .bub.app { background: var(--card); border: 1px solid var(--line); align-self: flex-start; }
 .convo-log .bub.me { background: var(--accent); color: var(--accent-ink); align-self: flex-end; }
 #screen-setup .textform input { min-height: 56px; font-size: 18px; }
+
+/* Explain: the cell card on top, the conversation in the middle, one input bar at the bottom */
+#screen-explain.active { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; height: 100%; overflow: hidden; }
+#screen-explain .ex-top { display: flex; justify-content: space-between; align-items: center; }
+#screen-explain .concept-tag { font-weight: 700; color: var(--accent); }
+#screen-explain .chips { margin: 0; }
+#screen-explain .cell-card { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+#screen-explain .cell-card small { color: var(--muted); }
+#screen-explain .cell-card strong { font-size: 22px; }
+#screen-explain .def { margin: 0; font-size: 16px; line-height: 1.4; }
+#screen-explain .diagram-slot { margin-top: 6px; border: 1px dashed var(--line); border-radius: 12px; padding: 14px; text-align: center; color: var(--muted); font-size: 14px; }
+#screen-explain #explain-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-top: 0; }
+#screen-explain #explain-result { margin-top: 0; }
+#screen-explain .ex-bar { display: flex; gap: 8px; align-items: center; padding-top: 8px; border-top: 1px solid var(--line); }
+#screen-explain .ex-bar input { flex: 1; min-height: 52px; font-size: 17px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); box-sizing: border-box; }
+#screen-explain .ex-bar .send { min-height: 52px; padding: 0 16px; }
+#screen-explain .mic-small { width: 52px; height: 52px; min-width: 52px; border-radius: 50%; padding: 0; font-size: 22px; }
+#screen-explain .mic-small.listening { background: #c0392b; color: #fff; }
