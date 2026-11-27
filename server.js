@@ -1,5 +1,6 @@
 // Voice-first study partner: a small Node server with no npm dependencies.
-// Runs in demo mode (no key needed) or Claude mode (ANTHROPIC_API_KEY set).
+// Modes: demo (no keys needed) and Claude grading (ANTHROPIC_API_KEY set).
+// Speech: browser recognition by default; Sarvam speech-to-text when SARVAM_API_KEY is set.
 
 const http = require('http');
 const fs = require('fs');
@@ -11,12 +12,19 @@ const DATA_DIR = path.join(__dirname, 'data');
 const PROGRESS_FILE = process.env.PROGRESS_FILE || path.join(DATA_DIR, 'progress.json');
 const API_KEY = (process.env.ANTHROPIC_API_KEY || '').trim();
 const MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-5-5';
+const SARVAM_KEY = (process.env.SARVAM_API_KEY || '').trim();
+const SARVAM_MODEL = process.env.SARVAM_MODEL || 'saaras:v4';
 const RECALL_PASS = 70;
+const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
 const CHAPTER_SOURCE =
   'NCERT Class 8 Science, Chapter 8: Cell - Structure and Functions (check against your textbook edition)';
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const LANGUAGES = ['Hindi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam'];
+const LANG_CODES = { Hindi: 'hi-IN', Tamil: 'ta-IN', Telugu: 'te-IN', Kannada: 'kn-IN', Malayalam: 'ml-IN', English: 'en-IN' };
 
 const chapter = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'class8-science.json'), 'utf8'));
+// Regional-language words for each key term. Matching accepts them as correct. Needs teacher review.
+const aliases = readOptionalJson(path.join(DATA_DIR, 'aliases.json'), {});
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -27,23 +35,40 @@ const MIME = {
   '.svg': 'image/svg+xml',
 };
 
-// ---------- progress storage ----------
-
-function loadProgress() {
+function readOptionalJson(file, fallback) {
   try {
-    return JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf8'));
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (err) {
-    return { attempts: [] };
+    return fallback;
   }
 }
 
-function saveProgress(progress) {
+// ---------- progress storage, one record per student ----------
+
+function loadAll() {
+  const all = readOptionalJson(PROGRESS_FILE, { students: {} });
+  all.students = all.students || {};
+  return all;
+}
+
+function loadProgress(studentId) {
+  return loadAll().students[studentId] || { attempts: [] };
+}
+
+function saveProgress(studentId, progress) {
   try {
+    const all = loadAll();
+    all.students[studentId] = progress;
     fs.mkdirSync(path.dirname(PROGRESS_FILE), { recursive: true });
-    fs.writeFileSync(PROGRESS_FILE, JSON.stringify(progress, null, 2));
+    fs.writeFileSync(PROGRESS_FILE, JSON.stringify(all, null, 2));
   } catch (err) {
     console.error('Could not save progress:', err.message);
   }
+}
+
+function studentIdFrom(req) {
+  const raw = String(req.headers['x-student-id'] || '');
+  return /^[A-Za-z0-9-]{8,64}$/.test(raw) ? raw : 'guest';
 }
 
 // ---------- helpers ----------
@@ -74,6 +99,24 @@ function readJsonBody(req) {
   });
 }
 
+function readRawBody(req, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        reject(new Error('Audio too large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 function findConcept(conceptId) {
   return chapter.concepts.find((c) => c.id === conceptId);
 }
@@ -82,34 +125,68 @@ function clampScore(n) {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
+function average(list) {
+  return list.length ? list.reduce((s, n) => s + Number(n || 0), 0) / list.length : 0;
+}
+
 function daysUntil(isoDate) {
   const ms = new Date(isoDate + 'T00:00:00+05:30') - Date.now();
   return Math.max(0, Math.ceil(ms / 86400000));
+}
+
+// ---------- term matching: English key terms and regional aliases ----------
+
+function levenshtein(a, b) {
+  const rows = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) rows[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      rows[i][j] = Math.min(
+        rows[i - 1][j] + 1,
+        rows[i][j - 1] + 1,
+        rows[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+  }
+  return rows[a.length][b.length];
+}
+
+// A key term counts if it appears in English or as any regional alias.
+// A word one letter away from an English key term is only flagged, so the app can ask "Did you mean...?".
+function matchTerms(text, concept) {
+  const lower = String(text || '').toLowerCase();
+  const words = lower.match(/[a-z]+/g) || [];
+  const conceptAliases = aliases[concept.id] || {};
+  const hits = [];
+  const maybe = [];
+  for (const term of concept.keyTerms) {
+    const candidates = [term, ...(conceptAliases[term] || [])].map((s) => s.toLowerCase());
+    if (candidates.some((c) => lower.includes(c))) {
+      hits.push(term);
+      continue;
+    }
+    const termWords = term.toLowerCase().split(' ').filter((w) => w.length >= 4);
+    const near = words.find((w) => w.length >= 4 && termWords.some((tw) => levenshtein(w, tw) === 1));
+    if (near) maybe.push({ term, heard: near });
+  }
+  return { hits, maybe };
 }
 
 // ---------- demo grading (no key, deterministic) ----------
 
 function demoGradeExplain(concept, answer) {
   const text = String(answer || '').toLowerCase();
-  const { hits, maybe } = fuzzyTerms(text, concept.keyTerms);
-  const missing = concept.keyTerms.filter((t) => !text.includes(t.toLowerCase()));
-  const trap = concept.misconceptions.find((m) =>
-    m.triggers.some((t) => text.includes(t.toLowerCase()))
-  );
+  const { hits, maybe } = matchTerms(answer, concept);
+  const missing = concept.keyTerms.filter((t) => !hits.includes(t));
+  const trap = concept.misconceptions.find((m) => m.triggers.some((t) => text.includes(t.toLowerCase())));
 
   let score = (hits.length / concept.keyTerms.length) * 100;
   if (trap) score -= 20;
 
   return {
     score: clampScore(score),
-    gotRight: hits.length
-      ? `You named ${hits.slice(0, 3).join(', ')}. Good.`
-      : 'You made a start. Keep going.',
-    fix: trap
-      ? trap.correction
-      : missing.length
-        ? `Add the idea of ${missing[0]}.`
-        : 'Nothing to fix. Well done.',
+    gotRight: hits.length ? `You named ${hits.slice(0, 3).join(', ')}. Good.` : 'You made a start. Keep going.',
+    fix: trap ? trap.correction : missing.length ? `Add the idea of ${missing[0]}.` : 'Nothing to fix. Well done.',
     followUp: trap ? trap.followUp : concept.followUp,
     didYouMean: maybe,
     source: 'demo',
@@ -117,9 +194,8 @@ function demoGradeExplain(concept, answer) {
 }
 
 function demoGradeRecall(concept, answer) {
-  const text = String(answer || '').toLowerCase();
-  const { hits, maybe } = fuzzyTerms(text, concept.keyTerms);
-  const missing = concept.keyTerms.filter((t) => !text.includes(t.toLowerCase()));
+  const { hits, maybe } = matchTerms(answer, concept);
+  const missing = concept.keyTerms.filter((t) => !hits.includes(t));
   const score = clampScore((hits.length / concept.keyTerms.length) * 100);
   return {
     score,
@@ -127,6 +203,19 @@ function demoGradeRecall(concept, answer) {
     missing,
     hint: score >= RECALL_PASS ? '' : concept.hint,
     didYouMean: maybe,
+    source: 'demo',
+  };
+}
+
+// English practice: one sentence in English. Checks that key ideas are named in English.
+function demoGradeEnglish(concept, sentence) {
+  const lower = String(sentence || '').toLowerCase();
+  const hits = concept.keyTerms.filter((t) => lower.includes(t.toLowerCase()));
+  const score = clampScore((hits.length / concept.keyTerms.length) * 100);
+  return {
+    score,
+    gotRight: hits.length ? `Good. You used ${hits.join(', ')} in English.` : 'Good try. Keep the English simple.',
+    fix: hits.length < concept.keyTerms.length ? `Next, add the idea of ${concept.keyTerms.find((t) => !hits.includes(t))}.` : 'Clear and complete.',
     source: 'demo',
   };
 }
@@ -159,9 +248,9 @@ async function claudeJson(system, user) {
 async function claudeGradeExplain(concept, answer, language) {
   const system =
     'You are a patient older sibling tutoring an Indian government school student in Class 8 Science. ' +
-    `The student explains in ${language}; exam terms are in English. Grade the MEANING, never the ` +
-    'pronunciation or grammar. Never give the answer directly; guide them. Reply ONLY with JSON: ' +
-    '{"score":0-100,"gotRight":"one short sentence","fix":"the specific misconception or missing idea, one short sentence",' +
+    `The student explains in ${language}; exam terms may be in English. Grade the MEANING, never the ` +
+    'pronunciation or grammar. Accept key terms in either language. Never give the answer directly; guide them. ' +
+    'Reply ONLY with JSON: {"score":0-100,"gotRight":"one short sentence","fix":"the specific misconception or missing idea, one short sentence",' +
     '"followUp":"one question that targets the misconception, under 20 words"}. Keep every sentence short.';
   const user =
     `Concept: ${concept.name}\n` +
@@ -179,9 +268,7 @@ async function claudeGradeRecall(concept, answer, language) {
     'never word-for-word differences. Accept terms in either the home language or English. ' +
     `The student speaks ${language}. Reply ONLY with JSON: ` +
     '{"score":0-100,"missing":["key terms missing or wrong"],"hint":"one hint in the home language with English terms, under 20 words"}.';
-  const user =
-    `Concept: ${concept.name}\nKey terms: ${concept.keyTerms.join(', ')}\n` +
-    `Student said: """${answer}"""`;
+  const user = `Concept: ${concept.name}\nKey terms: ${concept.keyTerms.join(', ')}\nStudent said: """${answer}"""`;
   const result = await claudeJson(system, user);
   const score = clampScore(result.score);
   return {
@@ -193,41 +280,79 @@ async function claudeGradeRecall(concept, answer, language) {
   };
 }
 
-// ---------- learner memory, review, rapid-fire, did-you-mean ----------
+// ---------- Sarvam speech-to-text (needs SARVAM_API_KEY) ----------
 
-function levenshtein(a, b) {
-  const rows = Array.from({ length: a.length + 1 }, (_, i) => [i]);
-  for (let j = 1; j <= b.length; j++) rows[0][j] = j;
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      rows[i][j] = Math.min(
-        rows[i - 1][j] + 1,
-        rows[i][j - 1] + 1,
-        rows[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-      );
-    }
+async function sarvamTranscribe(audio, contentType, languageCode) {
+  const form = new FormData();
+  form.append('file', new Blob([audio], { type: contentType || 'audio/webm' }), 'speech.webm');
+  form.append('model', SARVAM_MODEL);
+  form.append('mode', 'codemix'); // keeps English words in English alongside the regional language
+  form.append('language_code', languageCode);
+  const res = await fetch('https://api.sarvam.ai/speech-to-text', {
+    method: 'POST',
+    headers: { 'api-subscription-key': SARVAM_KEY },
+    body: form,
+  });
+  if (!res.ok) {
+    throw new Error(`Sarvam request failed with status ${res.status}`);
   }
-  return rows[a.length][b.length];
+  const data = await res.json();
+  return {
+    transcript: data.transcript || '',
+    language: data.language_code || languageCode,
+    probability: data.language_probability ?? null,
+  };
 }
 
-// Exact matches count. A word one letter away from a key term is only flagged: the app asks "Did you mean...?"
-function fuzzyTerms(text, terms) {
-  const lower = text.toLowerCase();
-  const words = lower.match(/[a-z]+/g) || [];
-  const hits = [];
-  const maybe = [];
-  for (const term of terms) {
-    const t = term.toLowerCase();
-    if (lower.includes(t)) {
-      hits.push(term);
-      continue;
-    }
-    const termWords = t.split(' ').filter((w) => w.length >= 4);
-    const near = words.find((w) => w.length >= 4 && termWords.some((tw) => levenshtein(w, tw) === 1));
-    if (near) maybe.push({ term, heard: near });
+// ---------- exam setup (by voice or text) ----------
+
+// Demo parser: reads the common phrasing from a spoken description. Claude mode uses claudeParseExam.
+function parseExamDemo(text) {
+  const t = text.toLowerCase();
+  const cls = t.match(/class\s*(\d{1,2})/);
+  const subjects = { science: 'Science', maths: 'Maths', math: 'Maths', english: 'English', social: 'Social Science' };
+  const subjectKey = Object.keys(subjects).find((k) => t.includes(k));
+  const chapters = t.match(/chapters?\s*(\d{1,2})\s*(?:to|-|through|till)\s*(\d{1,2})/);
+  const date = t.match(/(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*/);
+  const pct = t.match(/(\d{1,3})\s*(?:%|percent)/);
+
+  let examDate = null;
+  if (date) {
+    const month = MONTHS.indexOf(date[2]);
+    const now = new Date();
+    let year = now.getFullYear();
+    if (new Date(year, month, Number(date[1])) < now) year += 1;
+    examDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(date[1]).padStart(2, '0')}`;
   }
-  return { hits, maybe };
+
+  return {
+    class: cls ? Number(cls[1]) : null,
+    subject: subjectKey ? subjects[subjectKey] : null,
+    chapters: chapters ? [Number(chapters[1]), Number(chapters[2])] : null,
+    examDate,
+    preparedPct: pct ? Number(pct[1]) : null,
+  };
 }
+
+async function claudeParseExam(text) {
+  const system =
+    "Extract exam details from a student's spoken description. Reply ONLY with JSON: " +
+    '{"class":number|null,"subject":string|null,"chapters":[from,to]|null,"examDate":"YYYY-MM-DD"|null,"preparedPct":number|null}. ' +
+    'Use null for anything not stated. Do not guess.';
+  return claudeJson(system, text);
+}
+
+function examQuestions(parsed) {
+  const questions = [];
+  if (!parsed.class) questions.push('Which class is it?');
+  if (!parsed.subject) questions.push('Which subject?');
+  if (!parsed.chapters) questions.push('Which chapters does the exam cover?');
+  if (!parsed.examDate) questions.push('When is the exam?');
+  if (parsed.preparedPct == null) questions.push('About how much have you prepared, in percent?');
+  return questions;
+}
+
+// ---------- learner memory, review, rapid-fire, adaptive language ----------
 
 // Spaced review: a correct answer doubles the wait, a hesitant one keeps it, a failure resets it to one day.
 function updateMemory(progress, conceptId, score) {
@@ -266,10 +391,10 @@ function rapidFireQueue(progress) {
   const weak = chapter.concepts.filter((c) => memory[c.id] && memory[c.id].lastResult !== 'correct').map((c) => c.id);
   const due = dueConcepts(progress).map((c) => c.id);
   const rest = chapter.concepts.map((c) => c.id).sort(() => Math.random() - 0.5);
-  const order = [...new Set([...weak, ...due, ...rest])];
-  return order.slice(0, 5);
+  return [...new Set([...weak, ...due, ...rest])].slice(0, 5);
 }
 
+// Daily history for the dashboard chart: one point per day, the last 14 days with answers.
 function dailyHistory(explains) {
   const days = {};
   for (const a of explains) {
@@ -282,65 +407,14 @@ function dailyHistory(explains) {
     .map((day) => ({ day, answers: days[day].length, avgScore: Math.round(average(days[day])) }));
 }
 
-// ---------- exam setup (by voice or text) ----------
-
-// Demo parser: reads the common phrasing from a spoken description. Claude mode uses claudeParseExam.
-function parseExamDemo(text) {
-  const t = text.toLowerCase();
-  const cls = t.match(/class\s*(\d{1,2})/);
-  const subjects = { science: 'Science', maths: 'Maths', math: 'Maths', english: 'English', social: 'Social Science' };
-  const subjectKey = Object.keys(subjects).find((k) => t.includes(k));
-  const chapters = t.match(/chapters?\s*(\d{1,2})\s*(?:to|-|through|till)\s*(\d{1,2})/);
-  const date = t.match(/(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*/);
-  const pct = t.match(/(\d{1,3})\s*(?:%|percent)/);
-
-  let examDate = null;
-  if (date) {
-    const month = MONTHS.indexOf(date[2]);
-    const now = new Date();
-    let year = now.getFullYear();
-    if (new Date(year, month, Number(date[1])) < now) year += 1;
-    examDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(date[1]).padStart(2, '0')}`;
-  }
-
-  return {
-    class: cls ? Number(cls[1]) : null,
-    subject: subjectKey ? subjects[subjectKey] : null,
-    chapters: chapters ? [Number(chapters[1]), Number(chapters[2])] : null,
-    examDate,
-    preparedPct: pct ? Number(pct[1]) : null,
-  };
-}
-
-async function claudeParseExam(text) {
-  const system =
-    'Extract exam details from a student\'s spoken description. Reply ONLY with JSON: ' +
-    '{"class":number|null,"subject":string|null,"chapters":[from,to]|null,"examDate":"YYYY-MM-DD"|null,"preparedPct":number|null}. ' +
-    'Use null for anything not stated. Do not guess.';
-  return claudeJson(system, text);
-}
-
-function examQuestions(parsed) {
-  const questions = [];
-  if (!parsed.class) questions.push('Which class is it?');
-  if (!parsed.subject) questions.push('Which subject?');
-  if (!parsed.chapters) questions.push('Which chapters does the exam cover?');
-  if (!parsed.examDate) questions.push('When is the exam?');
-  if (parsed.preparedPct == null) questions.push('About how much have you prepared, in percent?');
-  return questions;
-}
-
 // ---------- dashboard ----------
-
-function average(list) {
-  return list.length ? list.reduce((s, n) => s + Number(n || 0), 0) / list.length : 0;
-}
 
 function buildDashboard(progress) {
   const attempts = progress.attempts;
   const exam = progress.exam || {};
   const explains = attempts.filter((a) => a.type === 'explain');
   const recalls = attempts.filter((a) => a.type === 'recall');
+  const englishPractice = attempts.filter((a) => a.type === 'english');
   const practised = new Set(explains.map((a) => a.conceptId));
   const total = chapter.concepts.length;
 
@@ -349,9 +423,7 @@ function buildDashboard(progress) {
     bestByConcept[a.conceptId] = Math.max(bestByConcept[a.conceptId] || 0, a.score);
   }
   const mastery = Math.round(average(Object.values(bestByConcept)));
-  const retention = recalls.length
-    ? Math.round((recalls.filter((a) => a.passed).length / recalls.length) * 100)
-    : 0;
+  const retention = recalls.length ? Math.round((recalls.filter((a) => a.passed).length / recalls.length) * 100) : 0;
 
   // Readiness: unpractised concepts count as zero, as in the brief.
   const readiness = Math.round(chapter.concepts.reduce((s, c) => s + (bestByConcept[c.id] || 0), 0) / total);
@@ -378,6 +450,14 @@ function buildDashboard(progress) {
     : null;
   const termsLearned = new Set(explains.flatMap((a) => a.termsHit || [])).size;
 
+  const memory = progress.memory || {};
+  const due = dueConcepts(progress);
+  const todayPlan = chapter.concepts
+    .filter((c) => !practised.has(c.id))
+    .map((c) => `Explain: ${c.name}`)
+    .concat(due.filter((c) => practised.has(c.id)).map((c) => `Review: ${c.name}`))
+    .slice(0, 5);
+
   return {
     chapter: chapter.title,
     exam: { class: exam.class || 8, subject: exam.subject || 'Science', preparedPct: exam.preparedPct ?? null },
@@ -393,6 +473,7 @@ function buildDashboard(progress) {
     retention,
     fluency,
     englishReadiness,
+    englishPractice: englishPractice.length,
     termsLearned,
     pace: {
       needPerDay: Math.round(((total - practised.size) / Math.max(1, daysLeft)) * 10) / 10,
@@ -404,13 +485,11 @@ function buildDashboard(progress) {
       high: Math.min(100, readiness + spread),
       label: 'Estimate, not a guarantee.',
     },
-    todayPlan: chapter.concepts
-      .filter((c) => !practised.has(c.id))
-      .map((c) => `Explain: ${c.name}`)
-      .concat(chapter.concepts.filter((c) => (bestByConcept[c.id] || 0) < RECALL_PASS).map((c) => `Recall: ${c.name}`))
-      .slice(0, 5),
-    due: dueConcepts(progress).length,
+    due: due.length,
     history: dailyHistory(explains),
+    todayPlan,
+    lastLanguage: progress.lastLanguage || null,
+    memoryCount: Object.keys(memory).length,
     mode: API_KEY ? 'claude' : 'demo',
   };
 }
@@ -418,8 +497,25 @@ function buildDashboard(progress) {
 // ---------- routes ----------
 
 async function handleApi(req, res, url) {
+  const studentId = studentIdFrom(req);
+
   if (req.method === 'GET' && url.pathname === '/api/status') {
-    return sendJson(res, 200, { mode: API_KEY ? 'claude' : 'demo', model: API_KEY ? MODEL : null });
+    return sendJson(res, 200, {
+      mode: API_KEY ? 'claude' : 'demo',
+      model: API_KEY ? MODEL : null,
+      stt: SARVAM_KEY ? 'sarvam' : 'browser',
+      sttModel: SARVAM_KEY ? SARVAM_MODEL : null,
+      languages: LANGUAGES,
+    });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/me') {
+    const progress = loadProgress(studentId);
+    return sendJson(res, 200, {
+      studentId,
+      lastLanguage: progress.lastLanguage || null,
+      examSet: Boolean(progress.exam),
+    });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/chapter') {
@@ -430,6 +526,21 @@ async function handleApi(req, res, url) {
     });
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/transcribe') {
+    if (!SARVAM_KEY) return sendJson(res, 404, { error: 'Sarvam is not configured. Use browser speech.' });
+    const audio = await readRawBody(req, MAX_AUDIO_BYTES);
+    if (!audio.length) return sendJson(res, 400, { error: 'No audio received' });
+    const requested = url.searchParams.get('lang') || 'Hindi';
+    const languageCode = LANG_CODES[requested] || 'unknown';
+    try {
+      const result = await sarvamTranscribe(audio, req.headers['content-type'], languageCode);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      console.error(err.message);
+      return sendJson(res, 502, { error: 'Speech service unavailable. Try again or type your answer.' });
+    }
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/explain') {
     const body = await readJsonBody(req);
     const concept = findConcept(body.conceptId);
@@ -437,7 +548,7 @@ async function handleApi(req, res, url) {
     const answer = String(body.answer || '').slice(0, 2000);
     if (!answer.trim()) return sendJson(res, 400, { error: 'Empty answer' });
 
-    const language = String(body.language || 'Hindi');
+    const language = LANGUAGES.includes(body.language) ? body.language : 'Hindi';
     let result;
     if (API_KEY) {
       try {
@@ -454,9 +565,7 @@ async function handleApi(req, res, url) {
     result.citation = { concept: concept.name, source: CHAPTER_SOURCE };
 
     const meta = body.meta && typeof body.meta === 'object' ? body.meta : {};
-    const lower = answer.toLowerCase();
-    const termsHit = concept.keyTerms.filter((t) => lower.includes(t.toLowerCase()));
-    const progress = loadProgress();
+    const progress = loadProgress(studentId);
     progress.attempts.push({
       type: 'explain',
       conceptId: concept.id,
@@ -468,11 +577,25 @@ async function handleApi(req, res, url) {
         fillers: Number(meta.fillers) || 0,
         englishShare: Math.min(1, Math.max(0, Number(meta.englishShare) || 0)),
       },
-      termsHit,
+      termsHit: matchTerms(answer, concept).hits,
     });
+    progress.lastLanguage = language;
     updateMemory(progress, concept.id, result.score);
     result.languageMode = languageMode(progress, concept.id);
-    saveProgress(progress);
+    saveProgress(studentId, progress);
+    return sendJson(res, 200, result);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/english') {
+    const body = await readJsonBody(req);
+    const concept = findConcept(body.conceptId);
+    if (!concept) return sendJson(res, 404, { error: 'Unknown concept' });
+    const sentence = String(body.sentence || '').slice(0, 500);
+    if (!sentence.trim()) return sendJson(res, 400, { error: 'Empty sentence' });
+    const result = demoGradeEnglish(concept, sentence);
+    const progress = loadProgress(studentId);
+    progress.attempts.push({ type: 'english', conceptId: concept.id, score: result.score, at: Date.now() });
+    saveProgress(studentId, progress);
     return sendJson(res, 200, result);
   }
 
@@ -483,7 +606,7 @@ async function handleApi(req, res, url) {
     const answer = String(body.answer || '').slice(0, 2000);
     if (!answer.trim()) return sendJson(res, 400, { error: 'Empty answer' });
 
-    const language = String(body.language || 'Hindi');
+    const language = LANGUAGES.includes(body.language) ? body.language : 'Hindi';
     let result;
     if (API_KEY) {
       try {
@@ -496,10 +619,10 @@ async function handleApi(req, res, url) {
       result = demoGradeRecall(concept, answer);
     }
 
-    const progress = loadProgress();
+    const progress = loadProgress(studentId);
     progress.attempts.push({ type: 'recall', conceptId: concept.id, score: result.score, passed: result.passed, at: Date.now() });
     updateMemory(progress, concept.id, result.score);
-    saveProgress(progress);
+    saveProgress(studentId, progress);
     return sendJson(res, 200, result);
   }
 
@@ -538,9 +661,9 @@ async function handleApi(req, res, url) {
       });
     }
 
-    const progress = loadProgress();
+    const progress = loadProgress(studentId);
     progress.exam = { ...parsed, setAt: Date.now() };
-    saveProgress(progress);
+    saveProgress(studentId, progress);
     return sendJson(res, 200, {
       parsed,
       missing: [],
@@ -551,17 +674,17 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/due') {
-    const due = dueConcepts(loadProgress()).map((c) => ({ id: c.id, name: c.name }));
+    const due = dueConcepts(loadProgress(studentId)).map((c) => ({ id: c.id, name: c.name }));
     return sendJson(res, 200, { due });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/rapid-fire') {
-    const ids = rapidFireQueue(loadProgress());
+    const ids = rapidFireQueue(loadProgress(studentId));
     return sendJson(res, 200, { questions: ids.map((id) => ({ conceptId: id, name: findConcept(id).name })) });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/dashboard') {
-    return sendJson(res, 200, buildDashboard(loadProgress()));
+    return sendJson(res, 200, buildDashboard(loadProgress(studentId)));
   }
 
   return sendJson(res, 404, { error: 'Not found' });
@@ -600,5 +723,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Study partner running on port ${PORT} in ${API_KEY ? 'Claude' : 'demo'} mode`);
+  console.log(`Study partner on port ${PORT}. Grading: ${API_KEY ? 'Claude' : 'demo'}. Speech: ${SARVAM_KEY ? 'Sarvam' : 'browser'}.`);
 });

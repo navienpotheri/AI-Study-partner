@@ -1,6 +1,6 @@
-# Study Partner
+﻿# Study Partner
 
-A voice-first study partner for students in Indian government schools. A student picks a home language (Hindi, Tamil, Telugu, Kannada or Malayalam), explains a concept by speaking, and gets a score, one thing to fix, and one follow-up question. The app also runs spoken recall checks and shows an exam dashboard.
+A voice-first study partner for students in Indian government schools. A student picks a home language (Hindi, Tamil, Telugu, Kannada or Malayalam), explains a concept by speaking, and gets a score, one thing to fix, and one follow-up question. Then they say one sentence in English. The app also runs spoken recall checks, a rapid-fire test, and an exam dashboard that tracks progress over time for each student.
 
 Built for the Wispr Flow × Scaler "Build for Bharat" hackathon, Round 2 (theme: Inclusive education).
 
@@ -14,39 +14,50 @@ docker compose up --build
 
 Then open http://localhost:3000.
 
-The app starts with **no secret keys**. With no key it runs in **demo mode**: answers are graded by keyword matching against a preloaded Class 8 Science chapter (Cell: Structure and Functions). The badge at the top shows which mode is active.
+The app starts with **no secret keys**. With no keys it runs in **demo mode**: answers are graded by keyword matching (including Hindi, Tamil, Telugu, Kannada and Malayalam key terms), and speech uses the browser's built-in recognition. The badge at the top shows which mode is active.
 
-## Turn on live Claude grading (optional)
+## Optional: Claude grading
 
-1. Copy `.env.example` to `.env`.
-2. Put your Anthropic API key in `ANTHROPIC_API_KEY`.
-3. Run `docker compose up --build` again.
+Set `ANTHROPIC_API_KEY` in `.env` (copy `.env.example`). Grading then reads meaning in any mix of the home language and English. Your key stays on the server.
 
-The badge now shows the Claude model. If a Claude call fails, the app falls back to demo grading for that answer, and the result says so. Your key stays on the server and is never sent to the browser.
+## Optional: Sarvam speech for regional languages
+
+Sarvam's speech-to-text handles Indian languages and English mixed in one sentence. When a Sarvam key is set, the app records your voice and sends it to Sarvam through the server.
+
+1. Create an account and get an API key at the Sarvam dashboard: https://dashboard.sarvam.ai
+2. Check current prices and free credits: https://sarvam.ai/api-pricing
+3. Read the speech-to-text reference: https://docs.sarvam.ai/api-reference-docs/speech-to-text/transcribe
+4. Put the key in `.env` as `SARVAM_API_KEY=...` and run `docker compose up --build` again.
+
+The badge then shows "Sarvam speech". The model defaults to `saaras:v4` and can be changed with `SARVAM_MODEL`. The key is read on the server only and is never sent to the browser.
+
+## Students and progress
+
+Each browser gets its own student id, kept in local storage. Progress, the exam plan, and the last language used are stored per student on the server (`data/progress.json`, kept between restarts through the Docker volume). Clearing browser storage starts a new student.
 
 ## What works
 
-- Pick a home language.
-- Explain a concept by voice (push-to-talk) or by typing. Low-confidence speech is not graded: the app shows what it heard and asks again. After two failures it nudges you to type.
-- Score, what you got right, the one thing to fix, and a follow-up question. Replies are spoken where the browser supports it.
+- Pick a home language. The app remembers the last one used.
+- Explain a concept by voice (push-to-talk) or by typing. Low-confidence speech is not graded: the app shows what it heard and asks again. Did-you-mean checks flag near-miss key terms.
+- Score, what you got right, the one thing to fix, a follow-up question, and the grounded source line.
+- One English sentence after each explanation, checked for the key ideas.
 - Spoken recall check, with a hint on failure.
-- Exam dashboard: days left, coverage, mastery, retention, readiness with a range (labelled as an estimate), and a short plan.
-- Progress is saved to `data/progress.json`, which is kept between restarts through the Docker volume.
+- Rapid-fire test: weak and due concepts first, one question at a time, a score and review list.
+- Continue: jumps to the next concept that is due.
+- Review timing: concepts answered well come back less often; weak ones come back the next day.
+- Exam setup by voice or text: class, subject, chapters, exam date, and preparation percentage. The app asks for anything missing.
+- Dashboard: days left, syllabus coverage, pace, fluency (estimate), English readiness, readiness with a range (labelled as an estimate), review count, and a 14-day chart.
 
 ## Not built yet
 
-- Rapid-fire test (shown on the home screen as "next").
-- Adaptive language switching and the exam-setup-by-voice flow.
-- Recognition of mixed-language speech (speech recognition uses the home language only).
-- Only one chapter is included.
-
-## Notes on voice
-
-Voice uses the browser's built-in speech recognition and speech synthesis. Support differs by browser: Chrome and Edge work best. Typing always works as a fallback.
+- Mixed-language key terms are checked against a small list of regional words (`data/aliases.json`). Those translations need review by a Class 8 teacher before the pilot.
+- Only one chapter (Class 8 Science, Cell) is included.
+- The home screen layout is a first version. A redesign is planned.
+- Voice has not been tested with real students. Test it in Chrome or Edge before you rely on it.
 
 ## Project layout
 
-- `server.js`: the server, grading (demo and Claude), and dashboard. No npm dependencies.
-- `data/class8-science.json`: the preloaded chapter.
+- `server.js`: the server, grading (demo and Claude), Sarvam speech proxy, spaced review, and dashboard. No npm dependencies.
+- `data/class8-science.json`: the preloaded chapter. `data/aliases.json`: regional words for key terms.
 - `public/`: the web app (HTML, CSS, plain JavaScript).
 - `docker-compose.yml` and `Dockerfile`: the one-command setup.

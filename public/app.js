@@ -13,6 +13,7 @@ const MAX_VOICE_FAILURES = 2;   // after this many, nudge toward typing
 
 const state = {
   language: 'Hindi',
+  stt: 'browser',
   concepts: [],
   explain: { conceptId: null, failures: 0 },
   recall: { conceptId: null, failures: 0 },
@@ -21,6 +22,29 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+// Each browser gets its own student id, so progress and the dashboard follow that student across sessions.
+const STUDENT_ID = (() => {
+  try {
+    let id = localStorage.getItem('studyPartnerId');
+    if (!id || !/^[A-Za-z0-9-]{8,64}$/.test(id)) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : `s-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+      localStorage.setItem('studyPartnerId', id);
+    }
+    return id;
+  } catch (err) {
+    return 'guest-local';
+  }
+})();
+
+const nativeFetch = window.fetch.bind(window);
+window.fetch = (input, opts = {}) => {
+  const url = typeof input === 'string' ? input : input.url;
+  if (url.startsWith('/api/')) {
+    opts = { ...opts, headers: { ...(opts.headers || {}), 'x-student-id': STUDENT_ID } };
+  }
+  return nativeFetch(input, opts);
+};
 
 // ---------- screens ----------
 
@@ -51,6 +75,9 @@ function speak(text) {
 
 // Push-to-talk: the mic listens only while the button is held.
 function attachPushToTalk(prefix) {
+  if (state.stt === 'sarvam' && window.MediaRecorder && navigator.mediaDevices) {
+    return attachSarvamPushToTalk(prefix);
+  }
   const mic = $(`${prefix}-mic`);
   if (!Recognition) {
     mic.disabled = true;
@@ -209,6 +236,7 @@ function renderExplain(result) {
     ${didYouMeanHtml(result)}
     ${result.languageMode ? `<p class="note">Next answer, speak in: ${languageLabel(result.languageMode)}</p>` : ''}
     <p class="note">${result.source === 'claude' ? 'Graded by Claude.' : 'Demo mode: graded by keywords, no AI key set.'}</p>`;
+  box.insertAdjacentHTML('beforeend', englishBoxHtml());
   speak(`${result.gotRight} ${result.fix} ${result.followUp}`);
 }
 
@@ -396,6 +424,7 @@ function renderExtra(d) {
       <li>English readiness: ${show(d.englishReadiness, '% of words in English')}</li>
       <li>English terms used so far: ${d.termsLearned}</li>
       <li>Due for review today: ${d.due} concept${d.due === 1 ? '' : 's'}.</li>
+      <li>${sparklineSvg(d.history)}</li>
       <li>Last 14 days: ${d.history.length ? d.history.map((h) => `${h.day.slice(5)} ${h.answers} answer${h.answers === 1 ? '' : 's'}, avg ${h.avgScore}`).join(' · ') : 'no answers yet'}</li>
       <li>${escapeHtml(d.exam.subject)}, Class ${d.exam.class}, ${d.daysLeft} days left${d.exam.preparedPct !== null ? `. You said you are ${d.exam.preparedPct}% prepared.` : '.'}</li>
     </ul>`;
@@ -496,6 +525,127 @@ function rapidSummary() {
   speak(review.length ? `Review ${review.join(', ')}.` : 'Nothing to review. Well done.');
 }
 
+// ---------- Sarvam recording (used when the server has a Sarvam key) ----------
+
+function attachSarvamPushToTalk(prefix) {
+  const mic = $(`${prefix}-mic`);
+  let recorder = null;
+  let chunks = [];
+
+  const start = async (event) => {
+    event.preventDefault();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        transcribe(prefix, new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
+      };
+      recorder.start();
+      mic.classList.add('listening');
+      $(`${prefix}-status`).textContent = 'Listening… let go when you finish.';
+    } catch (err) {
+      $(`${prefix}-status`).textContent = 'The microphone is blocked. Please type your answer.';
+    }
+  };
+  const stop = () => {
+    if (!recorder || recorder.state !== 'recording') return;
+    mic.classList.remove('listening');
+    mic.classList.add('busy');
+    $(`${prefix}-status`).textContent = 'Processing…';
+    recorder.stop();
+  };
+
+  mic.addEventListener('pointerdown', start);
+  mic.addEventListener('pointerup', stop);
+  mic.addEventListener('pointerleave', stop);
+}
+
+async function transcribe(prefix, blob) {
+  const mic = $(`${prefix}-mic`);
+  const status = $(`${prefix}-status`);
+  try {
+    const res = await fetch(`/api/transcribe?lang=${encodeURIComponent(state.language)}`, {
+      method: 'POST',
+      headers: { 'content-type': blob.type || 'audio/webm' },
+      body: blob,
+    });
+    const data = await res.json();
+    mic.classList.remove('busy');
+    if (!res.ok) throw new Error(data.error || 'Speech failed');
+    handleHeard(prefix, { text: data.transcript, confidence: data.probability ?? 1 });
+  } catch (err) {
+    mic.classList.remove('busy');
+    status.textContent = err.message;
+  }
+}
+
+// ---------- English practice: one sentence in English after each explanation ----------
+
+function englishBoxHtml() {
+  return `
+    <div class="english-box">
+      <p class="note">Now say the same idea in one English sentence. Use the exam words.</p>
+      <form id="english-form" class="textform">
+        <input id="english-text" type="text" placeholder="One English sentence" autocomplete="off">
+        <button type="submit">Check</button>
+      </form>
+      <div id="english-result"></div>
+    </div>`;
+}
+
+document.addEventListener('submit', async (event) => {
+  if (event.target.id !== 'english-form') return;
+  event.preventDefault();
+  const input = $('english-text');
+  const sentence = input.value.trim();
+  if (!sentence) return;
+  input.value = '';
+  const out = $('english-result');
+  out.innerHTML = '<p class="status">Checking…</p>';
+  try {
+    const res = await fetch('/api/english', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ conceptId: state.explain.conceptId, sentence }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    out.innerHTML = `<p class="good">${escapeHtml(data.gotRight)}</p><p class="fix">${escapeHtml(data.fix)}</p>`;
+    speak(`${data.gotRight} ${data.fix}`);
+  } catch (err) {
+    out.innerHTML = `<p class="fix">Something went wrong: ${escapeHtml(err.message)}</p>`;
+  }
+});
+
+// ---------- dashboard chart: small, phone-width, one line for the last 14 days ----------
+
+function sparklineSvg(history) {
+  if (!history || !history.length) {
+    return '<span class="muted">Answer a few questions to see your chart.</span>';
+  }
+  const width = 300;
+  const height = 80;
+  const step = history.length > 1 ? width / (history.length - 1) : 0;
+  const points = history.map((h, i) => {
+    const x = history.length > 1 ? i * step : width / 2;
+    const y = height - 10 - (h.avgScore / 100) * (height - 20);
+    return { x: x.toFixed(1), y: y.toFixed(1), label: `${h.day}: ${h.avgScore}` };
+  });
+  const line = points.map((p) => `${p.x},${p.y}`).join(' ');
+  const dots = points.map((p) => `<circle cx="${p.x}" cy="${p.y}" r="3"><title>${escapeHtml(p.label)}</title></circle>`).join('');
+  return `
+    <div class="chart">
+      <div class="muted">Average score by day, last ${history.length} day${history.length === 1 ? '' : 's'}</div>
+      <svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" role="img" aria-label="Average score by day">
+        <polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${line}" />
+        ${dots}
+      </svg>
+    </div>`;
+}
+
 // ---------- start ----------
 
 $('language').addEventListener('change', (event) => {
@@ -506,9 +656,21 @@ $('language').addEventListener('change', (event) => {
   try {
     const res = await fetch('/api/status');
     const status = await res.json();
-    $('mode-badge').textContent = status.mode === 'claude' ? `Claude · ${status.model}` : 'demo mode';
+    state.stt = status.stt;
+    const grading = status.mode === 'claude' ? `Claude · ${status.model}` : 'demo mode';
+    const speech = status.stt === 'sarvam' ? 'Sarvam speech' : 'browser speech';
+    $('mode-badge').textContent = `${grading} · ${speech}`;
   } catch (err) {
     $('mode-badge').textContent = 'offline';
+  }
+  try {
+    const me = await (await fetch('/api/me')).json();
+    if (me.lastLanguage) {
+      state.language = me.lastLanguage;
+      $('language').value = me.lastLanguage;
+    }
+  } catch (err) {
+    // Keep the default language if the server is unreachable.
   }
   insertExamScreen();
   await loadChapter();
