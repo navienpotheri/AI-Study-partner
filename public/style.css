@@ -283,3 +283,13 @@ body.fullscreen { padding-bottom: 0; }
   #screen-home .tint-rapid { background: #3a2a1a; }
   #screen-home .tint-exam { background: #1a3a2a; }
 }
+
+/* Sign-in page: one centred column, all fields the same width and height */
+#screen-signin.active { max-width: 360px; margin: 0 auto; padding-top: 28px; }
+#screen-signin h2 { margin-bottom: 6px; }
+.signin-form input {
+  width: 100%; box-sizing: border-box; min-height: 52px; font-size: 17px;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--card); color: var(--ink);
+}
+.signin-form .primary { width: 100%; box-sizing: border-box; }

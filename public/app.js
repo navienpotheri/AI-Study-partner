@@ -450,10 +450,6 @@ function renderExtra(d) {
 
 async function setupAuth() {
   $('signin-form').addEventListener('submit', requestSignIn);
-  $('guest-btn').addEventListener('click', () => {
-    localStorage.setItem('studyPartnerGuest', '1');
-    show('home');
-  });
 
   // The student may have arrived from the confirmation link.
   const token = new URLSearchParams(location.search).get('verify');
@@ -480,9 +476,9 @@ async function setupAuth() {
     show('home');
     return;
   }
-  $('auth').innerHTML = '<p class="muted">Guest: your progress is kept on this browser.</p><button id="signin-go" class="link">Sign in with email</button>';
+  $('auth').innerHTML = '<button id="signin-go" class="link">Sign in with email</button>';
   $('signin-go').addEventListener('click', () => show('signin'));
-  show(localStorage.getItem('studyPartnerGuest') ? 'home' : 'signin');
+  show('signin');
 }
 
 async function requestSignIn(event) {
