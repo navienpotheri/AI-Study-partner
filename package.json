@@ -1,0 +1,13 @@
+{
+  "name": "study-partner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Voice-first study partner for students in Indian government schools",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

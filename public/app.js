@@ -1,0 +1,385 @@
+// Study Partner front end. Plain JavaScript, no build step.
+// Voice uses the browser's speech APIs where available; typing is always available.
+
+const LANG_CODES = {
+  Hindi: 'hi-IN',
+  Tamil: 'ta-IN',
+  Telugu: 'te-IN',
+  Kannada: 'kn-IN',
+  Malayalam: 'ml-IN',
+};
+const CONFIDENCE_FLOOR = 0.5;   // below this, do not grade; ask the student to repeat
+const MAX_VOICE_FAILURES = 2;   // after this many, nudge toward typing
+
+const state = {
+  language: 'Hindi',
+  concepts: [],
+  explain: { conceptId: null, failures: 0 },
+  recall: { conceptId: null, failures: 0 },
+  setup: { conceptId: null, failures: 0 },
+};
+
+const $ = (id) => document.getElementById(id);
+
+// ---------- screens ----------
+
+function show(screen) {
+  document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === `screen-${screen}`));
+  if (screen === 'dashboard') loadDashboard();
+  window.scrollTo(0, 0);
+}
+
+document.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-go]');
+  if (target && !target.disabled) show(target.dataset.go);
+});
+
+// ---------- speech ----------
+
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function speak(text) {
+  if (!('speechSynthesis' in window) || !text) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = LANG_CODES[state.language] || 'en-IN';
+  utterance.rate = 0.95;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
+// Push-to-talk: the mic listens only while the button is held.
+function attachPushToTalk(prefix) {
+  const mic = $(`${prefix}-mic`);
+  if (!Recognition) {
+    mic.disabled = true;
+    mic.title = 'Voice is not supported in this browser. Type instead.';
+    $(`${prefix}-status`).textContent = 'Voice is not supported here. Please type your answer.';
+    return;
+  }
+
+  const recognizer = new Recognition();
+  recognizer.lang = LANG_CODES[state.language] || 'en-IN';
+  recognizer.interimResults = false;
+  recognizer.continuous = false;
+  recognizer.maxAlternatives = 1;
+
+  let heard = null;
+  recognizer.onresult = (event) => {
+    const best = event.results[0][0];
+    heard = { text: best.transcript, confidence: typeof best.confidence === 'number' ? best.confidence : 1 };
+  };
+  recognizer.onerror = () => { heard = null; };
+  recognizer.onend = () => {
+    mic.classList.remove('listening');
+    mic.classList.remove('busy');
+    handleHeard(prefix, heard);
+    heard = null;
+  };
+
+  const start = (event) => {
+    event.preventDefault();
+    heard = null;
+    recognizer.lang = LANG_CODES[state.language] || 'en-IN';
+    mic.classList.add('listening');
+    $(`${prefix}-status`).textContent = 'Listening… let go when you finish.';
+    try { recognizer.start(); } catch (err) { /* already started */ }
+  };
+  const stop = () => {
+    if (!mic.classList.contains('listening')) return;
+    $(`${prefix}-status`).textContent = 'Processing…';
+    mic.classList.add('busy');
+    try { recognizer.stop(); } catch (err) { /* ignore */ }
+  };
+
+  mic.addEventListener('pointerdown', start);
+  mic.addEventListener('pointerup', stop);
+  mic.addEventListener('pointerleave', stop);
+}
+
+// Low confidence means we do not grade. We show what was heard and ask again.
+function handleHeard(prefix, heard) {
+  const status = $(`${prefix}-status`);
+  const heardLine = $(`${prefix}-heard`);
+  const mode = state[prefix];
+
+  if (!heard || !heard.text.trim() || heard.confidence < CONFIDENCE_FLOOR) {
+    mode.failures += 1;
+    status.textContent = "I didn't catch that, please say it again.";
+    heardLine.textContent = heard && heard.text ? `I heard: "${heard.text}"` : '';
+    speak("I didn't catch that, please say it again.");
+    if (mode.failures >= MAX_VOICE_FAILURES) {
+      status.textContent = 'Having trouble? Type your answer below.';
+      $(`${prefix}-text`).focus();
+    }
+    return;
+  }
+
+  mode.failures = 0;
+  heardLine.textContent = `You said: "${heard.text}"`;
+  status.textContent = '';
+  submitAnswer(prefix, heard.text);
+}
+
+// ---------- chapter and chips ----------
+
+async function loadChapter() {
+  const res = await fetch('/api/chapter');
+  const chapter = await res.json();
+  state.concepts = chapter.concepts;
+  $('chapter-title').textContent = chapter.title;
+  renderChips('explain');
+  renderChips('recall');
+}
+
+function renderChips(prefix) {
+  const wrap = $(`${prefix === 'explain' ? 'explain' : 'recall'}-chips`);
+  wrap.innerHTML = '';
+  state.concepts.forEach((concept, index) => {
+    const button = document.createElement('button');
+    button.textContent = concept.name;
+    button.addEventListener('click', () => selectConcept(prefix, concept.id));
+    wrap.appendChild(button);
+    if (index === 0 && !state[prefix].conceptId) selectConcept(prefix, concept.id);
+  });
+}
+
+function selectConcept(prefix, conceptId) {
+  state[prefix].conceptId = conceptId;
+  state[prefix].failures = 0;
+  state[prefix].promptedAt = Date.now();
+  document.querySelectorAll(`#${prefix}-chips button`).forEach((b) => {
+    b.classList.toggle('selected', b.textContent === state.concepts.find((c) => c.id === conceptId).name);
+  });
+  $(`${prefix}-result`).hidden = true;
+  $(`${prefix}-status`).textContent = '';
+  $(`${prefix}-heard`).textContent = '';
+  if (prefix === 'explain') {
+    $('explain-prompt').textContent = `Explain "${conceptName(conceptId)}" in your own words.`;
+  } else {
+    $('recall-prompt').textContent = `Say the definition of "${conceptName(conceptId)}" from memory.`;
+  }
+}
+
+function conceptName(conceptId) {
+  const concept = state.concepts.find((c) => c.id === conceptId);
+  return concept ? concept.name : '';
+}
+
+// ---------- submitting answers ----------
+
+async function submitAnswer(prefix, text) {
+  if (prefix === 'setup') return submitSetup(text);
+  const conceptId = state[prefix].conceptId;
+  const endpoint = prefix === 'explain' ? '/api/explain' : '/api/recall';
+  const status = $(`${prefix}-status`);
+  status.textContent = 'Thinking…';
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        conceptId,
+        answer: text,
+        language: state.language,
+        meta: prefix === 'explain' ? speechMeta(text, state[prefix].promptedAt) : undefined,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    status.textContent = '';
+    if (prefix === 'explain') renderExplain(data);
+    else renderRecall(data);
+  } catch (err) {
+    status.textContent = `Something went wrong: ${err.message}`;
+  }
+}
+
+function renderExplain(result) {
+  const box = $('explain-result');
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="score">${result.score}/100</div>
+    <p class="good">${escapeHtml(result.gotRight)}</p>
+    <p class="fix">${escapeHtml(result.fix)}</p>
+    <p><strong>${escapeHtml(result.followUp)}</strong></p>
+    ${result.citation ? `<p class="note">Based on: ${escapeHtml(result.citation.concept)}, ${escapeHtml(result.citation.source)}</p>` : ''}
+    <p class="note">${result.source === 'claude' ? 'Graded by Claude.' : 'Demo mode: graded by keywords, no AI key set.'}</p>`;
+  speak(`${result.gotRight} ${result.fix} ${result.followUp}`);
+}
+
+function renderRecall(result) {
+  const box = $('recall-result');
+  box.hidden = false;
+  const missing = result.missing && result.missing.length
+    ? `<p class="fix">Missing: ${escapeHtml(result.missing.join(', '))}</p>`
+    : '';
+  const hint = result.passed
+    ? '<p class="good">Well recalled. Keep it fresh.</p>'
+    : `<p class="fix">Hint: ${escapeHtml(result.hint || '')}</p>`;
+  box.innerHTML = `
+    <div class="score">${result.score}/100</div>
+    ${missing}${hint}
+    <p class="note">${result.source === 'claude' ? 'Graded by Claude.' : 'Demo mode: graded by keywords, no AI key set.'}</p>`;
+  speak(result.passed ? 'Well recalled.' : `Hint. ${result.hint || ''}`);
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Typed answers go through the same path as spoken ones.
+$('explain-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const text = $('explain-text').value.trim();
+  if (!text) return;
+  $('explain-text').value = '';
+  submitAnswer('explain', text);
+});
+$('recall-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const text = $('recall-text').value.trim();
+  if (!text) return;
+  $('recall-text').value = '';
+  submitAnswer('recall', text);
+});
+
+// ---------- dashboard ----------
+
+async function loadDashboard() {
+  const res = await fetch('/api/dashboard');
+  const d = await res.json();
+  renderExtra(d);
+  $('d-days').textContent = d.daysLeft;
+  $('d-coverage').textContent = `${d.coverage.practised}/${d.coverage.total}`;
+  $('d-mastery').textContent = `${d.mastery}%`;
+  $('d-retention').textContent = `${d.retention}%`;
+  $('d-readiness').textContent = `${d.readiness.score}`;
+  $('d-range').textContent = `Likely between ${d.readiness.low} and ${d.readiness.high}. ${d.readiness.label}`;
+  const plan = $('d-plan');
+  plan.innerHTML = '';
+  (d.todayPlan.length ? d.todayPlan : ['All caught up. Try a recall check.']).forEach((item) => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    plan.appendChild(li);
+  });
+}
+
+// ---------- speech timing and fluency ----------
+
+const FILLER_WORDS = ['um', 'uh', 'umm', 'hmm', 'ah', 'like', 'matlab', 'toh', 'arre'];
+
+// Timing and word counts for fluency and English readiness. Measured on the transcript, not the audio.
+function speechMeta(text, promptedAt) {
+  const words = String(text).toLowerCase().split(/\s+/).filter(Boolean);
+  const fillers = words.filter((w) => FILLER_WORDS.includes(w.replace(/[^a-z]/g, ''))).length;
+  const english = words.filter((w) => /^[a-z']+$/.test(w)).length;
+  return {
+    responseMs: promptedAt ? Date.now() - promptedAt : 0,
+    fillers,
+    englishShare: words.length ? english / words.length : 0,
+  };
+}
+
+// ---------- exam setup ----------
+
+function insertExamScreen() {
+  document.querySelector('.menu').insertAdjacentHTML('afterbegin', '<button class="big" data-go="setup">Set up my exam</button>');
+  document.querySelector('main').insertAdjacentHTML('beforeend', `
+    <section id="screen-setup" class="screen">
+      <button class="back" data-go="home">&larr; Back</button>
+      <h2>Set up my exam</h2>
+      <p class="prompt">Tell me about your exam, in your own words. For example: "I have a quarterly science exam on 12 December, we use this textbook, chapters 3 to 7, and I have prepared about 40 percent."</p>
+      <button id="setup-mic" class="mic" aria-label="Hold to speak">&#127897;</button>
+      <p class="status" id="setup-status"></p>
+      <p class="heard" id="setup-heard"></p>
+      <form id="setup-form" class="textform">
+        <input id="setup-text" type="text" placeholder="Or type here" autocomplete="off">
+        <button type="submit">Save</button>
+      </form>
+      <div id="setup-result" class="result" hidden></div>
+    </section>`);
+  document.getElementById('setup-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = document.getElementById('setup-text');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    submitSetup(text);
+  });
+  attachPushToTalk('setup');
+}
+
+async function submitSetup(text) {
+  const status = $('setup-status');
+  const box = $('setup-result');
+  status.textContent = 'Reading your exam…';
+  try {
+    const res = await fetch('/api/exam-setup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text, language: state.language }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    status.textContent = '';
+    box.hidden = false;
+    if (data.missing.length) {
+      box.innerHTML = `<p class="fix">${escapeHtml(data.message)}</p>
+        <ul>${data.missing.map((q) => `<li>${escapeHtml(q)}</li>`).join('')}</ul>
+        <p class="note">Say or type the full description again, with the missing details.</p>`;
+      speak(data.missing[0]);
+    } else {
+      box.innerHTML = `<p class="good">${escapeHtml(data.message)}</p>
+        ${data.saved ? '<button data-go="dashboard">See my plan</button>' : ''}
+        <p class="note">${data.source === 'claude' ? 'Read by Claude.' : 'Read in demo mode (pattern matching).'}</p>`;
+      speak(data.message);
+    }
+  } catch (err) {
+    status.textContent = `Something went wrong: ${err.message}`;
+  }
+}
+
+function renderExtra(d) {
+  let card = document.getElementById('extra-card');
+  if (!card) {
+    card = document.createElement('div');
+    card.id = 'extra-card';
+    card.className = 'card';
+    document.getElementById('screen-dashboard').appendChild(card);
+  }
+  const show = (value, suffix = '') => (value === null || value === undefined ? 'not measured yet' : `${value}${suffix}`);
+  card.innerHTML = `
+    <h3>Plan details</h3>
+    <ul>
+      <li>Syllabus covered: ${d.coverage.pct}% (${d.coverage.practised} of ${d.coverage.total} concepts). Chapters left: ${d.coverage.chaptersLeft}.</li>
+      <li>Pace needed: ${d.pace.needPerDay} concepts a day. Your pace this week: ${d.pace.actualPerDay} a day.</li>
+      <li>Fluency (estimate): ${show(d.fluency, '/100')}</li>
+      <li>English readiness: ${show(d.englishReadiness, '% of words in English')}</li>
+      <li>English terms used so far: ${d.termsLearned}</li>
+      <li>${escapeHtml(d.exam.subject)}, Class ${d.exam.class}, ${d.daysLeft} days left${d.exam.preparedPct !== null ? `. You said you are ${d.exam.preparedPct}% prepared.` : '.'}</li>
+    </ul>`;
+}
+
+// ---------- start ----------
+
+$('language').addEventListener('change', (event) => {
+  state.language = event.target.value;
+});
+
+(async function init() {
+  try {
+    const res = await fetch('/api/status');
+    const status = await res.json();
+    $('mode-badge').textContent = status.mode === 'claude' ? `Claude · ${status.model}` : 'demo mode';
+  } catch (err) {
+    $('mode-badge').textContent = 'offline';
+  }
+  insertExamScreen();
+  await loadChapter();
+  attachPushToTalk('explain');
+  attachPushToTalk('recall');
+})();

@@ -1,0 +1,51 @@
+{
+  "title": "Class 8 Science · Cell: Structure and Functions",
+  "examDate": "2026-12-12",
+  "concepts": [
+    {
+      "id": "cell",
+      "name": "Cell",
+      "definition": "The cell is the basic unit of life. All living things are made of one or more cells.",
+      "keyTerms": ["cell", "basic unit", "living"],
+      "hint": "Think about the smallest part of a living thing that can still be called alive.",
+      "followUp": "Is a bacterium, which is one cell, alive?",
+      "misconceptions": [
+        {
+          "triggers": ["only in animals", "only animals"],
+          "correction": "Plants are made of cells too. Cells are not only in animals.",
+          "followUp": "Are the green leaves of a plant made of cells as well?"
+        }
+      ]
+    },
+    {
+      "id": "nucleus",
+      "name": "Nucleus",
+      "definition": "The nucleus is the control centre of the cell. It contains the genetic material that carries inherited information.",
+      "keyTerms": ["nucleus", "control", "genetic"],
+      "hint": "Which part of the cell decides what the cell does, like a head office?",
+      "followUp": "What does the nucleus pass on when a cell divides?",
+      "misconceptions": [
+        {
+          "triggers": ["nucleus makes food", "nucleus makes energy"],
+          "correction": "The nucleus does not make food. It controls the cell and holds the genetic material.",
+          "followUp": "Which part of the cell does the work of releasing energy from food?"
+        }
+      ]
+    },
+    {
+      "id": "cell-membrane",
+      "name": "Cell membrane",
+      "definition": "The cell membrane is a thin outer covering that controls what enters and leaves the cell.",
+      "keyTerms": ["membrane", "outer", "enters"],
+      "hint": "What is the thin outer layer that lets some things in and keeps others out?",
+      "followUp": "Why is it useful for a cell to let only some substances pass?",
+      "misconceptions": [
+        {
+          "triggers": ["membrane is a wall", "rigid wall"],
+          "correction": "The membrane is thin and flexible, not a rigid wall. It lets some substances pass.",
+          "followUp": "If the membrane were a rigid wall, could food get in?"
+        }
+      ]
+    }
+  ]
+}

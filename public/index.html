@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Study Partner</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Study Partner</h1>
+    <span id="mode-badge" class="badge">demo</span>
+  </header>
+
+  <main>
+    <!-- Home -->
+    <section id="screen-home" class="screen active">
+      <label class="field">
+        <span>Your home language</span>
+        <select id="language">
+          <option>Hindi</option>
+          <option>Tamil</option>
+          <option>Telugu</option>
+          <option>Kannada</option>
+          <option>Malayalam</option>
+        </select>
+      </label>
+      <p id="chapter-title" class="muted"></p>
+      <div class="menu">
+        <button class="big" data-go="explain">Start studying</button>
+        <button class="big" data-go="recall">Practise recall</button>
+        <button class="big" data-go="dashboard">My exam</button>
+        <button class="big disabled" disabled title="Coming next">Rapid-fire test (next)</button>
+      </div>
+    </section>
+
+    <!-- Explain and recall share the same mic and text input -->
+    <section id="screen-explain" class="screen">
+      <button class="back" data-go="home">&larr; Back</button>
+      <h2 id="explain-heading">Explain a concept</h2>
+      <div class="chips" id="explain-chips"></div>
+      <p class="prompt" id="explain-prompt">Tap the mic and explain this in your own words.</p>
+      <button id="explain-mic" class="mic" aria-label="Hold to speak">&#127897;</button>
+      <p class="status" id="explain-status"></p>
+      <p class="heard" id="explain-heard"></p>
+      <form id="explain-form" class="textform">
+        <input id="explain-text" type="text" placeholder="Or type here" autocomplete="off">
+        <button type="submit">Send</button>
+      </form>
+      <div id="explain-result" class="result" hidden></div>
+    </section>
+
+    <section id="screen-recall" class="screen">
+      <button class="back" data-go="home">&larr; Back</button>
+      <h2>Practise recall</h2>
+      <div class="chips" id="recall-chips"></div>
+      <p class="prompt" id="recall-prompt">Say the definition from memory.</p>
+      <button id="recall-mic" class="mic" aria-label="Hold to speak">&#127897;</button>
+      <p class="status" id="recall-status"></p>
+      <p class="heard" id="recall-heard"></p>
+      <form id="recall-form" class="textform">
+        <input id="recall-text" type="text" placeholder="Or type here" autocomplete="off">
+        <button type="submit">Check</button>
+      </form>
+      <div id="recall-result" class="result" hidden></div>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="screen-dashboard" class="screen">
+      <button class="back" data-go="home">&larr; Back</button>
+      <h2>My exam</h2>
+      <div class="tiles">
+        <div class="tile"><span id="d-days">-</span><small>days left</small></div>
+        <div class="tile"><span id="d-coverage">-</span><small>concepts practised</small></div>
+        <div class="tile"><span id="d-mastery">-</span><small>mastery</small></div>
+        <div class="tile"><span id="d-retention">-</span><small>retention</small></div>
+      </div>
+      <div class="card">
+        <h3>Readiness</h3>
+        <p class="big-number" id="d-readiness">-</p>
+        <p class="muted" id="d-range"></p>
+      </div>
+      <div class="card">
+        <h3>Today's plan</h3>
+        <ul id="d-plan"></ul>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
