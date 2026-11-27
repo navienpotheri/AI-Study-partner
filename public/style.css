@@ -225,3 +225,6 @@ body { padding-bottom: 76px; }
   flex: 1; background: transparent; color: var(--muted); min-height: 52px; font-size: 15px; border-radius: 12px; padding: 6px;
 }
 .tabbar button.active { color: var(--accent); background: var(--bg); font-weight: 700; }
+
+.auth { font-size: 13px; }
+.auth .link { background: none; color: var(--accent); min-height: 0; padding: 2px 4px; font-size: 13px; }

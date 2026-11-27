@@ -5,6 +5,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -14,6 +15,11 @@ const API_KEY = (process.env.ANTHROPIC_API_KEY || '').trim();
 const MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-5-5';
 const SARVAM_KEY = (process.env.SARVAM_API_KEY || '').trim();
 const SARVAM_MODEL = process.env.SARVAM_MODEL || 'saaras:v4';
+// Google sign-in is optional. Without a client ID the app runs as a guest, which is the demo default.
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+const SESSION_DAYS = 30;
+// token -> { studentId, name, createdAt }. Only a hashed Google id is kept; no email is stored.
+const sessions = new Map();
 const RECALL_PASS = 70;
 const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
 const CHAPTER_SOURCE =
@@ -66,9 +72,37 @@ function saveProgress(studentId, progress) {
   }
 }
 
+function sessionFrom(req) {
+  const token = String(req.headers['x-session'] || '');
+  const session = sessions.get(token);
+  if (!session) return null;
+  if (Date.now() - session.createdAt > SESSION_DAYS * 86400000) {
+    sessions.delete(token);
+    return null;
+  }
+  return session;
+}
+
+// A signed-in student is identified by their Google account (hashed). Guests use a browser-held id.
 function studentIdFrom(req) {
+  const session = sessionFrom(req);
+  if (session) return session.studentId;
   const raw = String(req.headers['x-student-id'] || '');
   return /^[A-Za-z0-9-]{8,64}$/.test(raw) ? raw : 'guest';
+}
+
+// Checks a Google ID token with Google's tokeninfo endpoint and returns only what we need.
+async function verifyGoogleCredential(credential) {
+  const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+  if (!res.ok) throw new Error('Google did not accept this sign-in.');
+  const info = await res.json();
+  if (info.aud !== GOOGLE_CLIENT_ID) throw new Error('This sign-in was made for a different app.');
+  if (String(info.email_verified) !== 'true') throw new Error('Your Google email is not verified.');
+  if (Number(info.exp) * 1000 < Date.now()) throw new Error('This sign-in has expired. Try again.');
+  return {
+    studentId: `g-${crypto.createHash('sha256').update(String(info.sub)).digest('hex').slice(0, 24)}`,
+    name: info.given_name || 'Student',
+  };
 }
 
 // ---------- helpers ----------
@@ -509,13 +543,38 @@ async function handleApi(req, res, url) {
     });
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/config') {
+    return sendJson(res, 200, { googleClientId: GOOGLE_CLIENT_ID || null });
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/me') {
     const progress = loadProgress(studentId);
+    const session = sessionFrom(req);
     return sendJson(res, 200, {
       studentId,
+      signedIn: Boolean(session),
+      name: session ? session.name : null,
       lastLanguage: progress.lastLanguage || null,
       examSet: Boolean(progress.exam),
     });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/google') {
+    if (!GOOGLE_CLIENT_ID) return sendJson(res, 404, { error: 'Google sign-in is not set up on this server.' });
+    const body = await readJsonBody(req);
+    try {
+      const { studentId: id, name } = await verifyGoogleCredential(String(body.credential || ''));
+      const token = crypto.randomBytes(24).toString('hex');
+      sessions.set(token, { studentId: id, name, createdAt: Date.now() });
+      return sendJson(res, 200, { token, name });
+    } catch (err) {
+      return sendJson(res, 401, { error: err.message });
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
+    sessions.delete(String(req.headers['x-session'] || ''));
+    return sendJson(res, 200, { ok: true });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/chapter') {

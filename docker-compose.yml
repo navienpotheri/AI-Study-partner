@@ -1,12 +1,15 @@
-services:
+﻿services:
   study-partner:
     build: .
     ports:
       - "3000:3000"
     environment:
-      # Optional. Leave empty and the app runs in demo mode with no key.
+      # All optional. With none set, the app runs in demo mode with no keys.
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-haiku-5-5}
+      - SARVAM_API_KEY=${SARVAM_API_KEY:-}
+      - SARVAM_MODEL=${SARVAM_MODEL:-saaras:v4}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     volumes:
       # Keeps student progress on the host between restarts.
       - ./data:/app/data

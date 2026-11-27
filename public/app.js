@@ -41,7 +41,10 @@ const nativeFetch = window.fetch.bind(window);
 window.fetch = (input, opts = {}) => {
   const url = typeof input === 'string' ? input : input.url;
   if (url.startsWith('/api/')) {
-    opts = { ...opts, headers: { ...(opts.headers || {}), 'x-student-id': STUDENT_ID } };
+    const session = localStorage.getItem('studyPartnerSession');
+    const headers = { ...(opts.headers || {}), 'x-student-id': STUDENT_ID };
+    if (session) headers['x-session'] = session;
+    opts = { ...opts, headers };
   }
   return nativeFetch(input, opts);
 };
@@ -428,6 +431,59 @@ function renderExtra(d) {
     </ul>`;
 }
 
+// ---------- Google sign-in (optional; guests keep working) ----------
+
+async function setupAuth() {
+  const box = $('auth');
+  let clientId = null;
+  try {
+    clientId = (await (await fetch('/api/config')).json()).googleClientId;
+  } catch (err) {
+    return;
+  }
+  const me = await (await fetch('/api/me')).json().catch(() => ({}));
+  if (me.signedIn) {
+    box.innerHTML = `<span class="muted">Hi, ${escapeHtml(me.name)}</span> <button id="signout" class="link">Sign out</button>`;
+    $('signout').addEventListener('click', signOut);
+    return;
+  }
+  if (!clientId) return; // Not configured: the app stays in guest mode.
+  waitForGoogle(() => {
+    google.accounts.id.initialize({ client_id: clientId, callback: onGoogleCredential });
+    google.accounts.id.renderButton(box, { theme: 'outline', size: 'medium', text: 'signin_with' });
+  });
+}
+
+// The Google script loads asynchronously, so wait for it before drawing the button.
+function waitForGoogle(then, tries = 0) {
+  if (window.google && google.accounts && google.accounts.id) return then();
+  if (tries > 50) return;
+  setTimeout(() => waitForGoogle(then, tries + 1), 200);
+}
+
+async function onGoogleCredential(response) {
+  try {
+    const res = await nativeFetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-student-id': STUDENT_ID },
+      body: JSON.stringify({ credential: response.credential }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sign-in failed');
+    localStorage.setItem('studyPartnerSession', data.token);
+    location.reload();
+  } catch (err) {
+    $('auth').textContent = err.message;
+  }
+}
+
+async function signOut() {
+  const token = localStorage.getItem('studyPartnerSession');
+  localStorage.removeItem('studyPartnerSession');
+  await nativeFetch('/api/auth/logout', { method: 'POST', headers: { 'x-session': token || '' } }).catch(() => {});
+  location.reload();
+}
+
 // ---------- home: at-a-glance strip and the Continue card ----------
 
 async function renderHome() {
@@ -679,6 +735,7 @@ $('language').addEventListener('change', (event) => {
   } catch (err) {
     $('mode-badge').textContent = 'offline';
   }
+  setupAuth();
   try {
     const me = await (await fetch('/api/me')).json();
     if (me.lastLanguage) {
