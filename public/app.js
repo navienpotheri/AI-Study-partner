@@ -17,6 +17,7 @@ const state = {
   explain: { conceptId: null, failures: 0 },
   recall: { conceptId: null, failures: 0 },
   setup: { conceptId: null, failures: 0 },
+  rapid: { conceptId: null, failures: 0, queue: [], index: 0, scores: [] },
 };
 
 const $ = (id) => document.getElementById(id);
@@ -24,6 +25,7 @@ const $ = (id) => document.getElementById(id);
 // ---------- screens ----------
 
 function show(screen) {
+  if (screen === 'continue') return continueStudy();
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === `screen-${screen}`));
   if (screen === 'dashboard') loadDashboard();
   window.scrollTo(0, 0);
@@ -169,6 +171,7 @@ function conceptName(conceptId) {
 
 async function submitAnswer(prefix, text) {
   if (prefix === 'setup') return submitSetup(text);
+  if (prefix === 'rapid') return submitRapid(text);
   const conceptId = state[prefix].conceptId;
   const endpoint = prefix === 'explain' ? '/api/explain' : '/api/recall';
   const status = $(`${prefix}-status`);
@@ -203,6 +206,8 @@ function renderExplain(result) {
     <p class="fix">${escapeHtml(result.fix)}</p>
     <p><strong>${escapeHtml(result.followUp)}</strong></p>
     ${result.citation ? `<p class="note">Based on: ${escapeHtml(result.citation.concept)}, ${escapeHtml(result.citation.source)}</p>` : ''}
+    ${didYouMeanHtml(result)}
+    ${result.languageMode ? `<p class="note">Next answer, speak in: ${languageLabel(result.languageMode)}</p>` : ''}
     <p class="note">${result.source === 'claude' ? 'Graded by Claude.' : 'Demo mode: graded by keywords, no AI key set.'}</p>`;
   speak(`${result.gotRight} ${result.fix} ${result.followUp}`);
 }
@@ -218,7 +223,7 @@ function renderRecall(result) {
     : `<p class="fix">Hint: ${escapeHtml(result.hint || '')}</p>`;
   box.innerHTML = `
     <div class="score">${result.score}/100</div>
-    ${missing}${hint}
+    ${missing}${hint}${didYouMeanHtml(result)}
     <p class="note">${result.source === 'claude' ? 'Graded by Claude.' : 'Demo mode: graded by keywords, no AI key set.'}</p>`;
   speak(result.passed ? 'Well recalled.' : `Hint. ${result.hint || ''}`);
 }
@@ -310,7 +315,37 @@ function insertExamScreen() {
     input.value = '';
     submitSetup(text);
   });
+  document.querySelector('.menu .disabled')?.remove();
+  document.querySelector('.menu').insertAdjacentHTML('afterbegin', '<button class="big" data-go="continue">Continue</button>');
+  document.querySelector('.menu').insertAdjacentHTML('beforeend', '<button class="big" data-go="rapid">Rapid-fire test</button>');
+  document.querySelector('main').insertAdjacentHTML('beforeend', `
+    <section id="screen-rapid" class="screen">
+      <button class="back" data-go="home">&larr; Back</button>
+      <h2>Rapid-fire test</h2>
+      <p class="muted">One question at a time. Weak and due concepts come first.</p>
+      <button id="rapid-start" class="big">Start</button>
+      <p class="muted" id="rapid-progress"></p>
+      <p class="prompt" id="rapid-prompt"></p>
+      <button id="rapid-mic" class="mic" aria-label="Hold to speak">&#127897;</button>
+      <p class="status" id="rapid-status"></p>
+      <p class="heard" id="rapid-heard"></p>
+      <form id="rapid-form" class="textform">
+        <input id="rapid-text" type="text" placeholder="Or type here" autocomplete="off">
+        <button type="submit">Check</button>
+      </form>
+      <div id="rapid-result" class="result" hidden></div>
+    </section>`);
+  document.getElementById('rapid-start').addEventListener('click', startRapid);
+  document.getElementById('rapid-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = document.getElementById('rapid-text');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    submitRapid(text);
+  });
   attachPushToTalk('setup');
+  attachPushToTalk('rapid');
 }
 
 async function submitSetup(text) {
@@ -360,8 +395,105 @@ function renderExtra(d) {
       <li>Fluency (estimate): ${show(d.fluency, '/100')}</li>
       <li>English readiness: ${show(d.englishReadiness, '% of words in English')}</li>
       <li>English terms used so far: ${d.termsLearned}</li>
+      <li>Due for review today: ${d.due} concept${d.due === 1 ? '' : 's'}.</li>
+      <li>Last 14 days: ${d.history.length ? d.history.map((h) => `${h.day.slice(5)} ${h.answers} answer${h.answers === 1 ? '' : 's'}, avg ${h.avgScore}`).join(' · ') : 'no answers yet'}</li>
       <li>${escapeHtml(d.exam.subject)}, Class ${d.exam.class}, ${d.daysLeft} days left${d.exam.preparedPct !== null ? `. You said you are ${d.exam.preparedPct}% prepared.` : '.'}</li>
     </ul>`;
+}
+
+// ---------- continue, rapid-fire, did-you-mean ----------
+
+async function continueStudy() {
+  const res = await fetch('/api/due');
+  const data = await res.json();
+  const next = data.due[0] || state.concepts[0];
+  if (next) selectConcept('explain', next.id);
+  show('explain');
+}
+
+function didYouMeanHtml(result) {
+  if (!result.didYouMean || !result.didYouMean.length) return '';
+  return result.didYouMean
+    .map((m) => `<p class="fix">Did you mean "${escapeHtml(m.term)}"? I heard "${escapeHtml(m.heard)}".</p>`)
+    .join('');
+}
+
+function languageLabel(mode) {
+  const labels = {
+    home: `${state.language}`,
+    mixed: `${state.language} with English exam terms`,
+    english: 'English, with exam terms',
+  };
+  return labels[mode] || state.language;
+}
+
+async function startRapid() {
+  const res = await fetch('/api/rapid-fire');
+  const data = await res.json();
+  Object.assign(state.rapid, { queue: data.questions, index: 0, scores: [], failures: 0 });
+  $('rapid-start').hidden = true;
+  askRapid();
+}
+
+function askRapid() {
+  const r = state.rapid;
+  $('rapid-result').hidden = true;
+  $('rapid-status').textContent = '';
+  $('rapid-heard').textContent = '';
+  if (r.index >= r.queue.length) return rapidSummary();
+  const q = r.queue[r.index];
+  $('rapid-progress').textContent = `Question ${r.index + 1} of ${r.queue.length}`;
+  $('rapid-prompt').textContent = `Say the definition of "${q.name}" from memory.`;
+  speak(`Question ${r.index + 1}. Say the definition of ${q.name}.`);
+}
+
+async function submitRapid(text) {
+  const r = state.rapid;
+  const q = r.queue[r.index];
+  if (!q) return;
+  const status = $('rapid-status');
+  status.textContent = 'Checking…';
+  try {
+    const res = await fetch('/api/recall', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ conceptId: q.conceptId, answer: text, language: state.language }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    status.textContent = '';
+    r.scores.push({ name: q.name, score: data.score, passed: data.passed });
+    const box = $('rapid-result');
+    box.hidden = false;
+    box.innerHTML = `
+      <div class="score">${data.score}/100</div>
+      <p class="${data.passed ? 'good' : 'fix'}">${data.passed ? 'Good, that is right.' : escapeHtml(`Almost. ${data.hint || ''}`)}</p>
+      ${didYouMeanHtml(data)}
+      <button id="rapid-next">Next</button>`;
+    speak(data.passed ? 'Good, that is right.' : `Almost. ${data.hint || ''}`);
+    document.getElementById('rapid-next').addEventListener('click', () => {
+      r.index += 1;
+      askRapid();
+    });
+  } catch (err) {
+    status.textContent = `Something went wrong: ${err.message}`;
+  }
+}
+
+function rapidSummary() {
+  const r = state.rapid;
+  const avg = r.scores.length ? Math.round(r.scores.reduce((s, x) => s + x.score, 0) / r.scores.length) : 0;
+  const review = r.scores.filter((x) => !x.passed).map((x) => x.name);
+  $('rapid-prompt').textContent = '';
+  $('rapid-progress').textContent = 'Test complete.';
+  $('rapid-start').hidden = false;
+  const box = $('rapid-result');
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="score">${avg}/100</div>
+    <p>${review.length ? `Review: ${escapeHtml(review.join(', '))}.` : 'Nothing to review. Well done.'}</p>
+    <p class="note">Scores are kept, and review times adjust to how you did.</p>`;
+  speak(review.length ? `Review ${review.join(', ')}.` : 'Nothing to review. Well done.');
 }
 
 // ---------- start ----------
