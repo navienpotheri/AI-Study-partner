@@ -139,7 +139,7 @@ function attachPushToTalk(prefix) {
     errored = '';
     recognizer.lang = LANG_CODES[state.language] || 'en-IN';
     mic.classList.add('listening');
-    $(`${prefix}-status`).textContent = 'Listening… let go when you finish.';
+    $(`${prefix}-status`).textContent = 'Listening… tap the mic again when you finish.';
     try { recognizer.start(); } catch (err) { /* already started */ }
   };
   const stop = () => {
@@ -667,7 +667,7 @@ function attachSarvamPushToTalk(prefix) {
       };
       recorder.start();
       mic.classList.add('listening');
-      $(`${prefix}-status`).textContent = 'Listening… let go when you finish.';
+      $(`${prefix}-status`).textContent = 'Listening… tap the mic again when you finish.';
     } catch (err) {
       $(`${prefix}-status`).textContent = 'The microphone is blocked. Please type your answer.';
     }

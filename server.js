@@ -196,6 +196,14 @@ function clampScore(n) {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
+// Demo feedback names what is missing, in plain words. No numbers are shown to the student.
+function demoFeedback(concept, score, hits, missing) {
+  const name = concept.name.toLowerCase();
+  if (score >= 85) return `You explained ${name} clearly. You are good to go.`;
+  if (hits.length) return `You have the main idea. Now add ${missing[0] || 'the last key point'}, and say it again.`;
+  return `Start again: say in your own words what ${name} is.`;
+}
+
 // Scores stay inside the app. Students see a plain phrase, never a number.
 function phraseFor(score) {
   if (score >= 85) return 'You sound very confident. You are good to go.';
@@ -266,7 +274,7 @@ function demoGradeExplain(concept, answer) {
     gotRight: hits.length ? `You named ${hits.slice(0, 3).join(', ')}. Good.` : 'You made a start. Keep going.',
     fix: trap ? trap.correction : missing.length ? `Add the idea of ${missing[0]}.` : 'Nothing to fix. Well done.',
     followUp: trap ? trap.followUp : concept.followUp,
-    feedback: phraseFor(clampScore(score)),
+    feedback: demoFeedback(concept, clampScore(score), hits, missing),
     didYouMean: maybe,
     source: 'demo',
   };
@@ -364,8 +372,11 @@ async function claudeGradeRecall(concept, answer, language) {
 // ---------- Sarvam speech-to-text (needs SARVAM_API_KEY) ----------
 
 async function sarvamTranscribe(audio, contentType, languageCode) {
+  // iPhones record MP4 audio, so the file name must match the real format, or Sarvam rejects it.
+  const type = String(contentType || 'audio/webm').split(';')[0].trim();
+  const extension = /mp4|m4a|aac/.test(type) ? 'mp4' : /ogg/.test(type) ? 'ogg' : /wav/.test(type) ? 'wav' : 'webm';
   const form = new FormData();
-  form.append('file', new Blob([audio], { type: contentType || 'audio/webm' }), 'speech.webm');
+  form.append('file', new Blob([audio], { type }), `speech.${extension}`);
   form.append('model', SARVAM_MODEL);
   form.append('mode', 'codemix'); // keeps English words in English alongside the regional language
   form.append('language_code', languageCode);
@@ -375,6 +386,9 @@ async function sarvamTranscribe(audio, contentType, languageCode) {
     body: form,
   });
   if (!res.ok) {
+    // Log Sarvam's reason (never the key) so the logs show what to fix.
+    const reason = await res.text().catch(() => '');
+    console.error(`Sarvam request failed with status ${res.status}: ${reason.slice(0, 300)}`);
     throw new Error(`Sarvam request failed with status ${res.status}`);
   }
   const data = await res.json();
