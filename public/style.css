@@ -228,3 +228,12 @@ body { padding-bottom: 76px; }
 
 .auth { font-size: 13px; }
 .auth .link { background: none; color: var(--accent); min-height: 0; padding: 2px 4px; font-size: 13px; }
+
+/* Layout v3: sign-in page, home, My exam, Setup */
+body.no-tabs .tabbar { display: none; }
+body.no-tabs { padding-bottom: 0; }
+.signin-form { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+.signin-form .primary { min-height: 52px; font-size: 18px; }
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.hero { margin-top: 18px; }
+.account { margin-top: 14px; }

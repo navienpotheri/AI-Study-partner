@@ -54,6 +54,7 @@ window.fetch = (input, opts = {}) => {
 function show(screen) {
   if (screen === 'continue') return continueStudy();
   document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.go === screen));
+  document.body.classList.toggle('no-tabs', screen === 'signin');
   if (screen === 'home') renderHome();
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === `screen-${screen}`));
   if (screen === 'dashboard') loadDashboard();
@@ -292,6 +293,7 @@ async function loadDashboard() {
   const d = await res.json();
   renderExtra(d);
   $('d-days').textContent = d.daysLeft;
+  $('d-due').textContent = d.due;
   $('d-coverage').textContent = `${d.coverage.practised}/${d.coverage.total}`;
   $('d-mastery').textContent = `${d.mastery}%`;
   $('d-retention').textContent = `${d.retention}%`;
@@ -329,6 +331,17 @@ function insertExamScreen() {
     <section id="screen-setup" class="screen">
       <button class="back" data-go="home">&larr; Back</button>
       <h2>Set up my exam</h2>
+      <label class="field">
+        <span>Your home language (chosen once)</span>
+        <select id="language">
+          <option>Hindi</option>
+          <option>Tamil</option>
+          <option>Telugu</option>
+          <option>Kannada</option>
+          <option>Malayalam</option>
+        </select>
+      </label>
+      <h3>Set up my exam</h3>
       <p class="prompt">Tell me about your exam, in your own words. For example: "I have a quarterly science exam on 12 December, we use this textbook, chapters 3 to 7, and I have prepared about 40 percent."</p>
       <button id="setup-mic" class="mic" aria-label="Hold to speak">&#127897;</button>
       <p class="status" id="setup-status"></p>
@@ -434,7 +447,12 @@ function renderExtra(d) {
 // ---------- Email sign-in: type email and name, tap the link we send ----------
 
 async function setupAuth() {
-  const box = $('auth');
+  $('signin-form').addEventListener('submit', requestSignIn);
+  $('guest-btn').addEventListener('click', () => {
+    localStorage.setItem('studyPartnerGuest', '1');
+    show('home');
+  });
+
   // The student may have arrived from the confirmation link.
   const token = new URLSearchParams(location.search).get('verify');
   if (token) {
@@ -448,27 +466,21 @@ async function setupAuth() {
       if (!res.ok) throw new Error(data.error);
       localStorage.setItem('studyPartnerSession', data.token);
     } catch (err) {
-      box.textContent = err.message;
+      $('signin-note').textContent = err.message;
     }
     history.replaceState(null, '', '/');
   }
 
   const me = await (await fetch('/api/me')).json().catch(() => ({}));
   if (me.signedIn) {
-    box.innerHTML = `<span class="muted">Hi, ${escapeHtml(me.name)}</span> <button id="signout" class="link">Sign out</button>`;
+    $('auth').innerHTML = `<p>Signed in as <strong>${escapeHtml(me.name)}</strong></p><button id="signout" class="link">Sign out</button>`;
     $('signout').addEventListener('click', signOut);
+    show('home');
     return;
   }
-  box.innerHTML = `
-    <button id="signin-open" class="link">Sign in</button>
-    <form id="signin-form" class="signin" hidden>
-      <input id="signin-name" type="text" placeholder="First name" autocomplete="given-name">
-      <input id="signin-email" type="email" placeholder="Email" autocomplete="email" required>
-      <button type="submit">Send link</button>
-      <p id="signin-note" class="note"></p>
-    </form>`;
-  $('signin-open').addEventListener('click', () => { $('signin-form').hidden = false; });
-  $('signin-form').addEventListener('submit', requestSignIn);
+  $('auth').innerHTML = '<p class="muted">Guest: your progress is kept on this browser.</p><button id="signin-go" class="link">Sign in with email</button>';
+  $('signin-go').addEventListener('click', () => show('signin'));
+  show(localStorage.getItem('studyPartnerGuest') ? 'home' : 'signin');
 }
 
 async function requestSignIn(event) {
@@ -506,9 +518,6 @@ async function renderHome() {
       fetch('/api/dashboard').then((r) => r.json()),
       fetch('/api/due').then((r) => r.json()),
     ]);
-    $('strip-days').textContent = d.daysLeft;
-    $('strip-coverage').textContent = `${d.coverage.pct}%`;
-    $('strip-due').textContent = d.due;
     const next = due.due[0] || state.concepts[0];
     $('hero-name').textContent = next ? next.name : 'Start with any concept';
   } catch (err) {
@@ -734,8 +743,11 @@ function sparklineSvg(history) {
 
 // ---------- start ----------
 
-$('language').addEventListener('change', (event) => {
+// The language is chosen once, on the Setup page, and remembered.
+document.addEventListener('change', (event) => {
+  if (event.target.id !== 'language') return;
   state.language = event.target.value;
+  localStorage.setItem('studyPartnerLanguage', state.language);
 });
 
 (async function init() {
@@ -752,14 +764,12 @@ $('language').addEventListener('change', (event) => {
   setupAuth();
   try {
     const me = await (await fetch('/api/me')).json();
-    if (me.lastLanguage) {
-      state.language = me.lastLanguage;
-      $('language').value = me.lastLanguage;
-    }
+    if (me.lastLanguage) state.language = me.lastLanguage;
   } catch (err) {
     // Keep the default language if the server is unreachable.
   }
   insertExamScreen();
+  $('language').value = state.language;
   await loadChapter();
   attachPushToTalk('explain');
   attachPushToTalk('recall');

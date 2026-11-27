@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -10,24 +10,24 @@
   <header class="top">
     <h1>Study Partner</h1>
     <span id="mode-badge" class="badge">demo</span>
-    <div id="auth" class="auth"></div>
   </header>
 
   <main>
-    <!-- Home: one clear next step, then the exam at a glance, then the four ways to study -->
+    <!-- Sign in: its own page, shown first -->
+    <section id="screen-signin" class="screen">
+      <h2>Sign in</h2>
+      <p class="muted">We'll email you a link. Tap it to start studying. No password.</p>
+      <form id="signin-form" class="signin-form">
+        <input id="signin-name" type="text" placeholder="First name" autocomplete="given-name">
+        <input id="signin-email" type="email" placeholder="Email address" autocomplete="email" required>
+        <button type="submit" class="primary">Send me a link</button>
+        <p id="signin-note" class="note"></p>
+      </form>
+      <button id="guest-btn" class="link">Continue as guest</button>
+    </section>
+
+    <!-- Home: four ways to study, then the next concept -->
     <section id="screen-home" class="screen active">
-      <div class="strip" aria-label="Exam at a glance">
-        <div><span id="strip-days">-</span><small>days to exam</small></div>
-        <div><span id="strip-coverage">-</span><small>syllabus covered</small></div>
-        <div><span id="strip-due">-</span><small>due today</small></div>
-      </div>
-
-      <button class="hero" data-go="continue">
-        <small>Continue</small>
-        <strong id="hero-name">Loading…</strong>
-        <span>Explain this next, in your own words</span>
-      </button>
-
       <div class="cards">
         <button class="card-btn" data-go="explain"><span class="ico" aria-hidden="true">&#127897;</span>Explain</button>
         <button class="card-btn" data-go="recall"><span class="ico" aria-hidden="true">&#129504;</span>Recall</button>
@@ -35,20 +35,14 @@
         <button class="card-btn" data-go="dashboard"><span class="ico" aria-hidden="true">&#128197;</span>My exam</button>
       </div>
 
-      <label class="field">
-        <span>Your home language</span>
-        <select id="language">
-          <option>Hindi</option>
-          <option>Tamil</option>
-          <option>Telugu</option>
-          <option>Kannada</option>
-          <option>Malayalam</option>
-        </select>
-      </label>
-      <p id="chapter-title" class="muted"></p>
+      <button class="hero" data-go="continue">
+        <small>Next up</small>
+        <strong id="hero-name">Loading…</strong>
+        <span>Explain it in your own words</span>
+      </button>
     </section>
 
-    <!-- Explain and recall share the same mic and text input -->
+    <!-- Explain -->
     <section id="screen-explain" class="screen">
       <button class="back" data-go="home">&larr; Back</button>
       <h2 id="explain-heading">Explain a concept</h2>
@@ -64,6 +58,7 @@
       <div id="explain-result" class="result" hidden></div>
     </section>
 
+    <!-- Recall -->
     <section id="screen-recall" class="screen">
       <button class="back" data-go="home">&larr; Back</button>
       <h2>Practise recall</h2>
@@ -79,13 +74,16 @@
       <div id="recall-result" class="result" hidden></div>
     </section>
 
-    <!-- Dashboard -->
+    <!-- My exam: days, coverage, due today, then readiness and plan -->
     <section id="screen-dashboard" class="screen">
-      <button class="back" data-go="home">&larr; Back</button>
       <h2>My exam</h2>
+      <p id="chapter-title" class="muted"></p>
+      <div class="strip" aria-label="Exam at a glance">
+        <div><span id="d-days">-</span><small>days to exam</small></div>
+        <div><span id="d-coverage">-</span><small>syllabus covered</small></div>
+        <div><span id="d-due">-</span><small>due today</small></div>
+      </div>
       <div class="tiles">
-        <div class="tile"><span id="d-days">-</span><small>days left</small></div>
-        <div class="tile"><span id="d-coverage">-</span><small>concepts practised</small></div>
         <div class="tile"><span id="d-mastery">-</span><small>mastery</small></div>
         <div class="tile"><span id="d-retention">-</span><small>retention</small></div>
       </div>
@@ -98,13 +96,14 @@
         <h3>Today's plan</h3>
         <ul id="d-plan"></ul>
       </div>
+      <div id="auth" class="card account"></div>
     </section>
   </main>
 
   <nav class="tabbar" aria-label="Main">
     <button data-go="home" class="active">Home</button>
     <button data-go="dashboard">My exam</button>
-    <button data-go="setup">Set up</button>
+    <button data-go="setup">Setup</button>
   </nav>
 
   <script src="/app.js"></script>

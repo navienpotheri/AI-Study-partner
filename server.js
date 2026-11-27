@@ -122,7 +122,12 @@ async function sendSignInEmail(to, link) {
              <p>The link works once and expires in ${LINK_MINUTES} minutes. If you did not ask for it, ignore this email.</p>`,
     }),
   });
-  if (!res.ok) throw new Error(`Email sending failed with status ${res.status}`);
+  if (!res.ok) {
+    // Log Resend's reason (never the key). The student sees only a generic message.
+    const reason = await res.text().catch(() => '');
+    console.error(`Resend rejected the email with status ${res.status}: ${reason}`);
+    throw new Error(`Email sending failed with status ${res.status}`);
+  }
   return true;
 }
 
