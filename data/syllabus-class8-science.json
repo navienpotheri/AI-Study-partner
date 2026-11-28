@@ -1,0 +1,1751 @@
+{
+ "class": 8,
+ "subject": "Science",
+ "book": "NCERT Curiosity, Textbook of Science for Grade 8",
+ "note": "Concept list follows the section headings and the Snapshots summary of each chapter. Definitions are short paraphrases, not yet checked by a teacher.",
+ "chapters": [
+  {
+   "number": 1,
+   "title": "Exploring the Investigative World of Science",
+   "concepts": [
+    {
+     "id": "c1-scientific-investigation",
+     "name": "Scientific investigation",
+     "definition": "Science starts with a question. We make a guess, test it with an experiment, observe carefully, and then decide what the result means.",
+     "keyTerms": [
+      "question",
+      "experiment",
+      "observe"
+     ],
+     "hint": "Think about these words: question and experiment.",
+     "followUp": "Why is one experiment not enough to be sure?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 2,
+   "title": "The Invisible Living World: Beyond Our Naked Eye",
+   "concepts": [
+    {
+     "id": "cell",
+     "name": "Cell",
+     "definition": "The cell is the basic unit of life. All living things are made of one or more cells.",
+     "keyTerms": [
+      "cell",
+      "basic unit",
+      "living"
+     ],
+     "hint": "Think about the smallest part of a living thing that can still be called alive.",
+     "followUp": "Is a bacterium, which is one cell, alive?",
+     "misconceptions": [
+      {
+       "triggers": [
+        "only in animals",
+        "only animals"
+       ],
+       "correction": "Plants are made of cells too. Cells are not only in animals.",
+       "followUp": "Are the green leaves of a plant made of cells as well?"
+      }
+     ]
+    },
+    {
+     "id": "nucleus",
+     "name": "Nucleus",
+     "definition": "The nucleus is the control centre of the cell. It contains the genetic material that carries inherited information.",
+     "keyTerms": [
+      "nucleus",
+      "control",
+      "genetic"
+     ],
+     "hint": "Which part of the cell decides what the cell does, like a head office?",
+     "followUp": "What does the nucleus pass on when a cell divides?",
+     "misconceptions": [
+      {
+       "triggers": [
+        "nucleus makes food",
+        "nucleus makes energy"
+       ],
+       "correction": "The nucleus does not make food. It controls the cell and holds the genetic material.",
+       "followUp": "Which part of the cell does the work of releasing energy from food?"
+      }
+     ]
+    },
+    {
+     "id": "cell-membrane",
+     "name": "Cell membrane",
+     "definition": "The cell membrane is a thin outer covering that controls what enters and leaves the cell.",
+     "keyTerms": [
+      "membrane",
+      "outer",
+      "enters"
+     ],
+     "hint": "What is the thin outer layer that lets some things in and keeps others out?",
+     "followUp": "Why is it useful for a cell to let only some substances pass?",
+     "misconceptions": [
+      {
+       "triggers": [
+        "membrane is a wall",
+        "rigid wall"
+       ],
+       "correction": "The membrane is thin and flexible, not a rigid wall. It lets some substances pass.",
+       "followUp": "If the membrane were a rigid wall, could food get in?"
+      }
+     ]
+    },
+    {
+     "id": "c2-cytoplasm",
+     "name": "Cytoplasm",
+     "definition": "Cytoplasm is the jelly-like material that fills the cell, between the cell membrane and the nucleus. The other parts of the cell sit in it.",
+     "keyTerms": [
+      "cytoplasm",
+      "fills",
+      "cell"
+     ],
+     "hint": "Think about these words: cytoplasm and fills.",
+     "followUp": "Where in the cell would you find the cytoplasm?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-cell-wall",
+     "name": "Cell wall",
+     "definition": "Plant, fungal and bacterial cells have an extra outer covering around the cell membrane, called the cell wall. Animal cells do not have it.",
+     "keyTerms": [
+      "cell wall",
+      "plant",
+      "covering"
+     ],
+     "hint": "Think about these words: cell wall and plant.",
+     "followUp": "Does an animal cell have a cell wall?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-shape-and-size-of-cells",
+     "name": "Shape and size of cells",
+     "definition": "Cells come in different shapes and sizes. The shape of a cell is related to the job it does, such as a long nerve cell that carries messages.",
+     "keyTerms": [
+      "shape",
+      "size",
+      "function"
+     ],
+     "hint": "Think about these words: shape and size.",
+     "followUp": "Why is a nerve cell long and thin?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-levels-of-organisation",
+     "name": "Levels of organisation",
+     "definition": "Cells that do the same job form a tissue. Tissues form organs, organs form organ systems, and organ systems form the organism.",
+     "keyTerms": [
+      "tissue",
+      "organ",
+      "organism"
+     ],
+     "hint": "Think about these words: tissue and organ.",
+     "followUp": "What comes between a cell and an organ?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-microorganisms",
+     "name": "Microorganisms",
+     "definition": "Microorganisms are living things too small to see with the unaided eye. They live everywhere, even inside plants and animals.",
+     "keyTerms": [
+      "microorganisms",
+      "small",
+      "microscope"
+     ],
+     "hint": "Think about these words: microorganisms and small.",
+     "followUp": "How can we see a microorganism?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-unicellular-and-multicellular-organisms",
+     "name": "Unicellular and multicellular organisms",
+     "definition": "A unicellular organism is made of one cell, like bacteria and protozoans. A multicellular organism, like a plant or an animal, is made of many cells.",
+     "keyTerms": [
+      "unicellular",
+      "multicellular",
+      "one cell"
+     ],
+     "hint": "Think about these words: unicellular and multicellular.",
+     "followUp": "Is a bacterium unicellular or multicellular?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-kinds-of-microorganisms",
+     "name": "Kinds of microorganisms",
+     "definition": "Bacteria, fungi and protozoa are different kinds of microorganisms. Bacteria do not have a well-defined nucleus.",
+     "keyTerms": [
+      "bacteria",
+      "fungi",
+      "protozoa"
+     ],
+     "hint": "Think about these words: bacteria and fungi.",
+     "followUp": "Which of these lacks a well-defined nucleus?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-viruses",
+     "name": "Viruses",
+     "definition": "Viruses are very small, but they are different from other microorganisms because they can reproduce only inside a host organism.",
+     "keyTerms": [
+      "virus",
+      "host",
+      "reproduce"
+     ],
+     "hint": "Think about these words: virus and host.",
+     "followUp": "Can a virus multiply outside a living body?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-microbes-that-clean-the-environment",
+     "name": "Microbes that clean the environment",
+     "definition": "Some microorganisms break down dead plants and animal waste into simple substances. This cleans the environment and returns nutrients to the soil.",
+     "keyTerms": [
+      "decompose",
+      "waste",
+      "nutrients"
+     ],
+     "hint": "Think about these words: decompose and waste.",
+     "followUp": "What would happen to fallen leaves without these microbes?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-nitrogen-fixing-bacteria",
+     "name": "Nitrogen-fixing bacteria",
+     "definition": "Some bacteria live in the root nodules of legumes such as peas and beans. They trap nitrogen from the air and make the soil more fertile.",
+     "keyTerms": [
+      "nitrogen",
+      "root nodules",
+      "legumes"
+     ],
+     "hint": "Think about these words: nitrogen and root nodules.",
+     "followUp": "Why do farmers grow beans to improve the soil?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-microorganisms-and-food",
+     "name": "Microorganisms and food",
+     "definition": "Yeast, a fungus, makes bread and idli batter rise. Lactobacillus bacteria turn milk into curd. This process is called fermentation.",
+     "keyTerms": [
+      "yeast",
+      "lactobacillus",
+      "fermentation"
+     ],
+     "hint": "Think about these words: yeast and lactobacillus.",
+     "followUp": "Which microbe turns milk into curd?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-microalgae",
+     "name": "Microalgae",
+     "definition": "Microalgae are tiny plant-like organisms in water. They make food using sunlight and release oxygen, and they are food for water animals.",
+     "keyTerms": [
+      "microalgae",
+      "oxygen",
+      "water"
+     ],
+     "hint": "Think about these words: microalgae and oxygen.",
+     "followUp": "How do microalgae help animals in a pond?",
+     "misconceptions": []
+    },
+    {
+     "id": "c2-cell-as-the-basic-unit-of-life",
+     "name": "Cell as the basic unit of life",
+     "definition": "The cell is called the basic unit of life because every living thing is made of cells, and each cell can carry out the activities needed for life.",
+     "keyTerms": [
+      "basic unit",
+      "cells",
+      "life"
+     ],
+     "hint": "Think about these words: basic unit and cells.",
+     "followUp": "Why do we call the cell the basic unit of life?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 3,
+   "title": "Health: The Ultimate Treasure",
+   "concepts": [
+    {
+     "id": "c3-health",
+     "name": "Health",
+     "definition": "Health is complete physical, mental and social well-being. It is more than not being sick.",
+     "keyTerms": [
+      "physical",
+      "mental",
+      "social"
+     ],
+     "hint": "Think about these words: physical and mental.",
+     "followUp": "Can a person with no disease still be unhealthy?",
+     "misconceptions": []
+    },
+    {
+     "id": "c3-healthy-lifestyle",
+     "name": "Healthy lifestyle",
+     "definition": "We stay healthy by eating balanced food, exercising, sleeping well, keeping clean, and keeping our surroundings clean.",
+     "keyTerms": [
+      "food",
+      "exercise",
+      "clean"
+     ],
+     "hint": "Think about these words: food and exercise.",
+     "followUp": "Name two daily habits that keep you healthy.",
+     "misconceptions": []
+    },
+    {
+     "id": "c3-disease",
+     "name": "Disease",
+     "definition": "A disease is a condition that affects the normal working of the body or the mind.",
+     "keyTerms": [
+      "disease",
+      "body",
+      "mind"
+     ],
+     "hint": "Think about these words: disease and body.",
+     "followUp": "How is a disease different from feeling tired after play?",
+     "misconceptions": []
+    },
+    {
+     "id": "c3-symptoms-and-signs",
+     "name": "Symptoms and signs",
+     "definition": "Symptoms are what the sick person feels, like pain or tiredness. Signs are what others can see or measure, like fever or a rash.",
+     "keyTerms": [
+      "symptoms",
+      "signs",
+      "fever"
+     ],
+     "hint": "Think about these words: symptoms and signs.",
+     "followUp": "Is a headache a symptom or a sign?",
+     "misconceptions": []
+    },
+    {
+     "id": "c3-communicable-diseases",
+     "name": "Communicable diseases",
+     "definition": "Communicable or infectious diseases are caused by pathogens such as bacteria, viruses and worms. They spread from one person to another through air, water, food, contact or insects.",
+     "keyTerms": [
+      "pathogens",
+      "spread",
+      "infectious"
+     ],
+     "hint": "Think about these words: pathogens and spread.",
+     "followUp": "How can a cold pass from one person to another?",
+     "misconceptions": []
+    },
+    {
+     "id": "c3-non-communicable-diseases",
+     "name": "Non-communicable diseases",
+     "definition": "Non-communicable diseases, like diabetes and heart disease, are not caused by germs and do not spread. They come from lifestyle and environment, and healthy habits can often prevent them.",
+     "keyTerms": [
+      "diabetes",
+      "lifestyle",
+      "not spread"
+     ],
+     "hint": "Think about these words: diabetes and lifestyle.",
+     "followUp": "Can you catch diabetes from a friend?",
+     "misconceptions": []
+    },
+    {
+     "id": "c3-immune-system",
+     "name": "Immune system",
+     "definition": "The immune system is the body's own defence. It protects us from harmful pathogens.",
+     "keyTerms": [
+      "immune",
+      "protect",
+      "pathogens"
+     ],
+     "hint": "Think about these words: immune and protect.",
+     "followUp": "What does the immune system fight against?",
+     "misconceptions": []
+    },
+    {
+     "id": "c3-vaccines",
+     "name": "Vaccines",
+     "definition": "A vaccine trains the immune system using dead, weakened or harmless parts of a germ. The body then fights the real germ faster and prevents the disease.",
+     "keyTerms": [
+      "vaccine",
+      "immune",
+      "prevent"
+     ],
+     "hint": "Think about these words: vaccine and immune.",
+     "followUp": "Why is a vaccine given before a person falls sick?",
+     "misconceptions": []
+    },
+    {
+     "id": "c3-diagnosis-and-treatment",
+     "name": "Diagnosis and treatment",
+     "definition": "Diagnosis means finding out which disease a person has. Treatment, such as the right medicine from a doctor, manages or cures it.",
+     "keyTerms": [
+      "diagnosis",
+      "treatment",
+      "medicine"
+     ],
+     "hint": "Think about these words: diagnosis and treatment.",
+     "followUp": "Why should we not take antibiotics without a doctor?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 4,
+   "title": "Electricity: Magnetic and Heating Effects",
+   "concepts": [
+    {
+     "id": "c4-magnetic-effect-of-electric-current",
+     "name": "Magnetic effect of electric current",
+     "definition": "When electric current flows through a wire, it produces a magnetic field around the wire. A compass needle kept near it moves.",
+     "keyTerms": [
+      "current",
+      "magnetic field",
+      "wire"
+     ],
+     "hint": "Think about these words: current and magnetic field.",
+     "followUp": "What happens to a compass needle near a current-carrying wire?",
+     "misconceptions": []
+    },
+    {
+     "id": "c4-electromagnet",
+     "name": "Electromagnet",
+     "definition": "A coil that carries current and behaves like a magnet is called an electromagnet. An iron core inside the coil makes it stronger, and it stops being a magnet when the current stops.",
+     "keyTerms": [
+      "coil",
+      "current",
+      "iron core"
+     ],
+     "hint": "Think about these words: coil and current.",
+     "followUp": "How can you make an electromagnet stronger?",
+     "misconceptions": []
+    },
+    {
+     "id": "c4-heating-effect-of-electric-current",
+     "name": "Heating effect of electric current",
+     "definition": "A wire becomes hot when current flows through it. This is the heating effect of electric current, used in heaters, irons and electric kettles.",
+     "keyTerms": [
+      "heat",
+      "current",
+      "wire"
+     ],
+     "hint": "Think about these words: heat and current.",
+     "followUp": "Name one appliance that uses the heating effect.",
+     "misconceptions": []
+    },
+    {
+     "id": "c4-electric-cell-and-battery",
+     "name": "Electric cell and battery",
+     "definition": "A cell is a device that produces electric current from chemical reactions inside it. A battery is two or more cells joined together.",
+     "keyTerms": [
+      "cell",
+      "chemical reactions",
+      "battery"
+     ],
+     "hint": "Think about these words: cell and chemical reactions.",
+     "followUp": "Where does the electricity in a cell come from?",
+     "misconceptions": []
+    },
+    {
+     "id": "c4-voltaic-cell",
+     "name": "Voltaic cell",
+     "definition": "A voltaic cell has two different metal plates dipped in a liquid called an electrolyte. Chemical reactions between them produce electric current.",
+     "keyTerms": [
+      "two metals",
+      "electrolyte",
+      "current"
+     ],
+     "hint": "Think about these words: two metals and electrolyte.",
+     "followUp": "What are the three parts of a voltaic cell?",
+     "misconceptions": []
+    },
+    {
+     "id": "c4-dry-cell",
+     "name": "Dry cell",
+     "definition": "A dry cell uses a moist paste instead of a liquid, so it does not spill. It cannot be recharged once it is used up.",
+     "keyTerms": [
+      "dry cell",
+      "paste",
+      "single use"
+     ],
+     "hint": "Think about these words: dry cell and paste.",
+     "followUp": "Why is a dry cell easier to carry than a voltaic cell?",
+     "misconceptions": []
+    },
+    {
+     "id": "c4-rechargeable-batteries",
+     "name": "Rechargeable batteries",
+     "definition": "A rechargeable battery can be charged again with electricity and used many times, like the battery in a mobile phone.",
+     "keyTerms": [
+      "rechargeable",
+      "reuse",
+      "charge"
+     ],
+     "hint": "Think about these words: rechargeable and reuse.",
+     "followUp": "Why are rechargeable batteries better for the environment?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 5,
+   "title": "Exploring Forces",
+   "concepts": [
+    {
+     "id": "c5-force",
+     "name": "Force",
+     "definition": "A force is a push or a pull on an object. It comes from the interaction of that object with another object.",
+     "keyTerms": [
+      "push",
+      "pull",
+      "interaction"
+     ],
+     "hint": "Think about these words: push and pull.",
+     "followUp": "Give one example of a push and one of a pull.",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-unit-of-force",
+     "name": "Unit of force",
+     "definition": "The SI unit of force is the newton. Its symbol is N.",
+     "keyTerms": [
+      "newton",
+      "N",
+      "unit"
+     ],
+     "hint": "Think about these words: newton and N.",
+     "followUp": "What is the symbol for the unit of force?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-effects-of-force",
+     "name": "Effects of force",
+     "definition": "A force can change the speed of an object, the direction of its motion, or both. It can also change the shape of an object.",
+     "keyTerms": [
+      "speed",
+      "direction",
+      "shape"
+     ],
+     "hint": "Think about these words: speed and direction.",
+     "followUp": "What does a force do when you squeeze a rubber ball?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-force-as-an-interaction",
+     "name": "Force as an interaction",
+     "definition": "A force acts only when two objects interact. One object alone cannot have a force on it.",
+     "keyTerms": [
+      "two objects",
+      "interaction",
+      "force"
+     ],
+     "hint": "Think about these words: two objects and interaction.",
+     "followUp": "When you push a wall, what are the two objects?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-contact-forces",
+     "name": "Contact forces",
+     "definition": "Contact forces act only when objects touch each other. Muscular force and friction are contact forces.",
+     "keyTerms": [
+      "contact",
+      "muscular",
+      "touch"
+     ],
+     "hint": "Think about these words: contact and muscular.",
+     "followUp": "Is lifting a school bag a contact force?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-friction",
+     "name": "Friction",
+     "definition": "Friction is the force that acts when an object moves or tries to move over a surface. It acts opposite to the direction of motion.",
+     "keyTerms": [
+      "friction",
+      "surface",
+      "opposite"
+     ],
+     "hint": "Think about these words: friction and surface.",
+     "followUp": "Why does a rolling ball stop on its own?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-non-contact-forces",
+     "name": "Non-contact forces",
+     "definition": "Non-contact forces act without touching. Magnetic force, electrostatic force and gravitational force are non-contact forces.",
+     "keyTerms": [
+      "non-contact",
+      "magnetic",
+      "gravitational"
+     ],
+     "hint": "Think about these words: non-contact and magnetic.",
+     "followUp": "Name one force that works without touching.",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-magnetic-force",
+     "name": "Magnetic force",
+     "definition": "Magnetic force is the force a magnet exerts on another magnet or on a magnetic material like iron. It can attract or repel.",
+     "keyTerms": [
+      "magnet",
+      "attract",
+      "repel"
+     ],
+     "hint": "Think about these words: magnet and attract.",
+     "followUp": "What happens when two like poles are brought close?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-electrostatic-force",
+     "name": "Electrostatic force",
+     "definition": "Electrostatic force is the force a charged body exerts on another charged or uncharged body, like a rubbed comb pulling bits of paper.",
+     "keyTerms": [
+      "charged",
+      "electrostatic",
+      "attract"
+     ],
+     "hint": "Think about these words: charged and electrostatic.",
+     "followUp": "Why does a rubbed comb pick up paper pieces?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-gravitational-force",
+     "name": "Gravitational force",
+     "definition": "Gravitational force is the force with which the Earth attracts objects towards itself. It is always an attractive force.",
+     "keyTerms": [
+      "earth",
+      "attracts",
+      "gravitational"
+     ],
+     "hint": "Think about these words: earth and attracts.",
+     "followUp": "Why does a fruit fall down and not up?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-weight",
+     "name": "Weight",
+     "definition": "Weight is the force with which the Earth pulls an object towards itself. Its SI unit is the newton, and it is measured with a spring balance.",
+     "keyTerms": [
+      "weight",
+      "earth pulls",
+      "newton"
+     ],
+     "hint": "Think about these words: weight and earth pulls.",
+     "followUp": "What instrument measures weight?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-mass-and-weight",
+     "name": "Mass and weight",
+     "definition": "Mass is the amount of matter in an object and stays the same everywhere. Weight can change from place to place.",
+     "keyTerms": [
+      "mass",
+      "same",
+      "weight changes"
+     ],
+     "hint": "Think about these words: mass and same.",
+     "followUp": "Would your mass change on the Moon?",
+     "misconceptions": []
+    },
+    {
+     "id": "c5-buoyant-force",
+     "name": "Buoyant force",
+     "definition": "When an object is placed in a liquid, the liquid pushes it upward. This upward force is called upthrust or buoyant force, and it decides whether the object floats or sinks.",
+     "keyTerms": [
+      "upward",
+      "upthrust",
+      "liquid"
+     ],
+     "hint": "Think about these words: upward and upthrust.",
+     "followUp": "Why does a bucket feel lighter inside water?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 6,
+   "title": "Pressure, Winds, Storms, and Cyclones",
+   "concepts": [
+    {
+     "id": "c6-pressure",
+     "name": "Pressure",
+     "definition": "Pressure is the force acting on a unit area. The same force gives more pressure on a smaller area.",
+     "keyTerms": [
+      "force",
+      "area",
+      "pressure"
+     ],
+     "hint": "Think about these words: force and area.",
+     "followUp": "Why does a sharp knife cut better than a blunt one?",
+     "misconceptions": []
+    },
+    {
+     "id": "c6-unit-of-pressure",
+     "name": "Unit of pressure",
+     "definition": "The SI unit of pressure is newton per square metre. It is also called the pascal, written Pa.",
+     "keyTerms": [
+      "pascal",
+      "newton per square metre",
+      "Pa"
+     ],
+     "hint": "Think about these words: pascal and newton per square metre.",
+     "followUp": "What is another name for newton per square metre?",
+     "misconceptions": []
+    },
+    {
+     "id": "c6-pressure-in-liquids-and-gases",
+     "name": "Pressure in liquids and gases",
+     "definition": "Liquids and gases exert pressure on the walls of their container. The pressure of a liquid increases with depth.",
+     "keyTerms": [
+      "liquids",
+      "gases",
+      "walls"
+     ],
+     "hint": "Think about these words: liquids and gases.",
+     "followUp": "Why does water come out faster from a hole near the bottom of a bottle?",
+     "misconceptions": []
+    },
+    {
+     "id": "c6-atmospheric-pressure",
+     "name": "Atmospheric pressure",
+     "definition": "The air around us has weight and presses on everything. This pressure of the air is called atmospheric pressure.",
+     "keyTerms": [
+      "air",
+      "atmospheric",
+      "pressure"
+     ],
+     "hint": "Think about these words: air and atmospheric.",
+     "followUp": "Why are we not crushed by atmospheric pressure?",
+     "misconceptions": []
+    },
+    {
+     "id": "c6-formation-of-wind",
+     "name": "Formation of wind",
+     "definition": "Warm air rises and leaves a low-pressure area. Cooler air from a high-pressure area moves in to take its place. This moving air is wind.",
+     "keyTerms": [
+      "warm air rises",
+      "low pressure",
+      "wind"
+     ],
+     "hint": "Think about these words: warm air rises and low pressure.",
+     "followUp": "In which direction does wind blow: high to low pressure, or low to high?",
+     "misconceptions": []
+    },
+    {
+     "id": "c6-high-speed-winds-and-low-pressure",
+     "name": "High-speed winds and low pressure",
+     "definition": "Fast-moving air has lower pressure. That is why strong winds can lift roofs: the pressure above the roof drops.",
+     "keyTerms": [
+      "high speed",
+      "low pressure",
+      "roof"
+     ],
+     "hint": "Think about these words: high speed and low pressure.",
+     "followUp": "Why can a strong wind blow a roof upward?",
+     "misconceptions": []
+    },
+    {
+     "id": "c6-thunderstorms",
+     "name": "Thunderstorms",
+     "definition": "Thunderstorms need moisture and strong winds. Winds moving up and down rub ice particles and water droplets together, and electric charges build up in the clouds.",
+     "keyTerms": [
+      "moisture",
+      "strong winds",
+      "charges"
+     ],
+     "hint": "Think about these words: moisture and strong winds.",
+     "followUp": "What two things are needed for a thunderstorm?",
+     "misconceptions": []
+    },
+    {
+     "id": "c6-lightning",
+     "name": "Lightning",
+     "definition": "Lightning is a giant electric spark. It happens when charges meet inside a cloud, between clouds, or between a cloud and the ground.",
+     "keyTerms": [
+      "charges",
+      "cloud",
+      "spark"
+     ],
+     "hint": "Think about these words: charges and cloud.",
+     "followUp": "Where should you not stand during lightning?",
+     "misconceptions": []
+    },
+    {
+     "id": "c6-lightning-conductor",
+     "name": "Lightning conductor",
+     "definition": "A lightning conductor is a metal rod on a building, joined to the ground. It carries the charge safely into the earth and protects the building.",
+     "keyTerms": [
+      "metal rod",
+      "ground",
+      "protects"
+     ],
+     "hint": "Think about these words: metal rod and ground.",
+     "followUp": "How does a lightning conductor protect a building?",
+     "misconceptions": []
+    },
+    {
+     "id": "c6-cyclones",
+     "name": "Cyclones",
+     "definition": "A cyclone is a huge storm with very fast winds spinning around a low-pressure centre, formed over warm seas. The India Meteorological Department tracks cyclones and gives warnings.",
+     "keyTerms": [
+      "cyclone",
+      "low pressure",
+      "warning"
+     ],
+     "hint": "Think about these words: cyclone and low pressure.",
+     "followUp": "Which department warns us about cyclones in India?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 7,
+   "title": "Particulate Nature of Matter",
+   "concepts": [
+    {
+     "id": "c7-matter-is-made-of-particles",
+     "name": "Matter is made of particles",
+     "definition": "All matter is made of extremely small particles, far too small to see.",
+     "keyTerms": [
+      "matter",
+      "particles",
+      "small"
+     ],
+     "hint": "Think about these words: matter and particles.",
+     "followUp": "What is everything around us made of?",
+     "misconceptions": []
+    },
+    {
+     "id": "c7-interparticle-attraction",
+     "name": "Interparticle attraction",
+     "definition": "Particles of matter attract each other. This force is strongest in solids, weaker in liquids, and weakest in gases.",
+     "keyTerms": [
+      "attraction",
+      "strongest in solids",
+      "weakest in gases"
+     ],
+     "hint": "Think about these words: attraction and strongest in solids.",
+     "followUp": "In which state do particles attract each other the most?",
+     "misconceptions": []
+    },
+    {
+     "id": "c7-solid-state",
+     "name": "Solid state",
+     "definition": "In a solid, particles are packed closely, attract strongly and cannot move freely. So a solid has a fixed shape and a fixed volume.",
+     "keyTerms": [
+      "fixed shape",
+      "close",
+      "strong attraction"
+     ],
+     "hint": "Think about these words: fixed shape and close.",
+     "followUp": "Why does a stone keep its shape?",
+     "misconceptions": []
+    },
+    {
+     "id": "c7-liquid-state",
+     "name": "Liquid state",
+     "definition": "In a liquid, particles attract a little less and can move past each other. So a liquid has a fixed volume but takes the shape of its container.",
+     "keyTerms": [
+      "fixed volume",
+      "no fixed shape",
+      "move"
+     ],
+     "hint": "Think about these words: fixed volume and no fixed shape.",
+     "followUp": "Why does water take the shape of a glass?",
+     "misconceptions": []
+    },
+    {
+     "id": "c7-gaseous-state",
+     "name": "Gaseous state",
+     "definition": "In a gas, attraction between particles is negligible and they move freely with large spaces between them. So a gas has no fixed shape and no fixed volume.",
+     "keyTerms": [
+      "no fixed shape",
+      "free",
+      "large space"
+     ],
+     "hint": "Think about these words: no fixed shape and free.",
+     "followUp": "Why does a gas fill the whole room?",
+     "misconceptions": []
+    },
+    {
+     "id": "c7-interparticle-spacing-and-change-of-state",
+     "name": "Interparticle spacing and change of state",
+     "definition": "Heating gives particles more energy, so they move apart and the spacing increases. This is how a solid melts into a liquid and a liquid turns into a gas.",
+     "keyTerms": [
+      "heating",
+      "spacing",
+      "change of state"
+     ],
+     "hint": "Think about these words: heating and spacing.",
+     "followUp": "What happens to the particles when ice melts?",
+     "misconceptions": []
+    },
+    {
+     "id": "c7-movement-of-particles",
+     "name": "Movement of particles",
+     "definition": "Particles vibrate in place in solids, slide past each other in liquids, and move freely in all directions in gases.",
+     "keyTerms": [
+      "vibrate",
+      "slide",
+      "move freely"
+     ],
+     "hint": "Think about these words: vibrate and slide.",
+     "followUp": "How do particles move in a solid?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 8,
+   "title": "Nature of Matter: Elements, Compounds, and Mixtures",
+   "concepts": [
+    {
+     "id": "c8-mixture",
+     "name": "Mixture",
+     "definition": "A mixture has two or more substances mixed together. Each substance keeps its own properties, and they do not react chemically.",
+     "keyTerms": [
+      "two or more",
+      "keep properties",
+      "no reaction"
+     ],
+     "hint": "Think about these words: two or more and keep properties.",
+     "followUp": "Is salt water a mixture? Why?",
+     "misconceptions": []
+    },
+    {
+     "id": "c8-components-of-a-mixture",
+     "name": "Components of a mixture",
+     "definition": "The individual substances that make up a mixture are called its components.",
+     "keyTerms": [
+      "components",
+      "substances",
+      "mixture"
+     ],
+     "hint": "Think about these words: components and substances.",
+     "followUp": "What are the components of lemonade?",
+     "misconceptions": []
+    },
+    {
+     "id": "c8-air-as-a-mixture",
+     "name": "Air as a mixture",
+     "definition": "Air is a mixture of gases, mainly nitrogen and oxygen, with small amounts of carbon dioxide, water vapour and other gases.",
+     "keyTerms": [
+      "air",
+      "nitrogen",
+      "oxygen"
+     ],
+     "hint": "Think about these words: air and nitrogen.",
+     "followUp": "Which gas is present in the largest amount in air?",
+     "misconceptions": []
+    },
+    {
+     "id": "c8-types-of-mixtures",
+     "name": "Types of mixtures",
+     "definition": "In a uniform mixture the components are spread evenly and cannot be seen separately, like sugar in water. In a non-uniform mixture they can be seen separately, like sand in water.",
+     "keyTerms": [
+      "uniform",
+      "non-uniform",
+      "evenly"
+     ],
+     "hint": "Think about these words: uniform and non-uniform.",
+     "followUp": "Is sand in water uniform or non-uniform?",
+     "misconceptions": []
+    },
+    {
+     "id": "c8-pure-substance",
+     "name": "Pure substance",
+     "definition": "A pure substance is made of only one type of particle, and all its particles behave in the same way.",
+     "keyTerms": [
+      "pure",
+      "same type",
+      "particles"
+     ],
+     "hint": "Think about these words: pure and same type.",
+     "followUp": "Is tap water a pure substance?",
+     "misconceptions": []
+    },
+    {
+     "id": "c8-element",
+     "name": "Element",
+     "definition": "An element is the simplest substance. It cannot be broken down into simpler substances. Elements are the building blocks of all matter.",
+     "keyTerms": [
+      "element",
+      "simplest",
+      "cannot be broken"
+     ],
+     "hint": "Think about these words: element and simplest.",
+     "followUp": "Name one element you know.",
+     "misconceptions": []
+    },
+    {
+     "id": "c8-compound",
+     "name": "Compound",
+     "definition": "A compound is made of two or more elements joined chemically in a fixed ratio. Its properties are different from the elements in it, like water made from hydrogen and oxygen.",
+     "keyTerms": [
+      "two or more elements",
+      "fixed ratio",
+      "different properties"
+     ],
+     "hint": "Think about these words: two or more elements and fixed ratio.",
+     "followUp": "How is a compound different from a mixture?",
+     "misconceptions": []
+    },
+    {
+     "id": "c8-uses-of-elements-compounds-and-mixtures",
+     "name": "Uses of elements, compounds and mixtures",
+     "definition": "We use elements like iron and copper, compounds like water and salt, and mixtures like air and steel every day. Choosing the right one depends on its properties.",
+     "keyTerms": [
+      "uses",
+      "properties",
+      "everyday"
+     ],
+     "hint": "Think about these words: uses and properties.",
+     "followUp": "Give one everyday use of a mixture.",
+     "misconceptions": []
+    },
+    {
+     "id": "c8-minerals",
+     "name": "Minerals",
+     "definition": "Minerals are natural, solid substances found on the Earth with a fixed chemical composition. Most are compounds, and a few are pure elements.",
+     "keyTerms": [
+      "natural",
+      "solid",
+      "fixed composition"
+     ],
+     "hint": "Think about these words: natural and solid.",
+     "followUp": "Are most minerals elements or compounds?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 9,
+   "title": "The Amazing World of Solutes, Solvents, and Solutions",
+   "concepts": [
+    {
+     "id": "c9-solution",
+     "name": "Solution",
+     "definition": "A solution forms when two or more substances mix to make a uniform mixture, like sugar dissolved in water.",
+     "keyTerms": [
+      "uniform mixture",
+      "dissolve",
+      "solution"
+     ],
+     "hint": "Think about these words: uniform mixture and dissolve.",
+     "followUp": "Is muddy water a solution?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-solute-and-solvent",
+     "name": "Solute and solvent",
+     "definition": "When a solid dissolves in a liquid, the solid is the solute and the liquid is the solvent. When two liquids mix, the one in the smaller amount is the solute.",
+     "keyTerms": [
+      "solute",
+      "solvent",
+      "dissolves"
+     ],
+     "hint": "Think about these words: solute and solvent.",
+     "followUp": "In salt water, which is the solute?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-saturated-solution",
+     "name": "Saturated solution",
+     "definition": "A saturated solution has the maximum amount of solute dissolved in it. No more solute can dissolve at that temperature.",
+     "keyTerms": [
+      "saturated",
+      "maximum",
+      "no more"
+     ],
+     "hint": "Think about these words: saturated and maximum.",
+     "followUp": "What happens if you add more sugar to a saturated solution?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-unsaturated-solution",
+     "name": "Unsaturated solution",
+     "definition": "An unsaturated solution can still dissolve more solute at that temperature.",
+     "keyTerms": [
+      "unsaturated",
+      "more solute",
+      "dissolve"
+     ],
+     "hint": "Think about these words: unsaturated and more solute.",
+     "followUp": "How can you tell a solution is unsaturated?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-solubility",
+     "name": "Solubility",
+     "definition": "Solubility is the maximum amount of solute that can dissolve in a fixed quantity, 100 mL, of solvent at a particular temperature.",
+     "keyTerms": [
+      "maximum amount",
+      "100 mL",
+      "temperature"
+     ],
+     "hint": "Think about these words: maximum amount and 100 mL.",
+     "followUp": "Why must we state the temperature for solubility?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-temperature-and-solubility-of-solids",
+     "name": "Temperature and solubility of solids",
+     "definition": "In liquids, the solubility of most solids increases when the temperature rises. More sugar dissolves in hot water than in cold water.",
+     "keyTerms": [
+      "temperature",
+      "increases",
+      "solids"
+     ],
+     "hint": "Think about these words: temperature and increases.",
+     "followUp": "Does more sugar dissolve in hot or cold water?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-solubility-of-gases",
+     "name": "Solubility of gases",
+     "definition": "Gases also dissolve in water, like the oxygen fish breathe. The solubility of gases decreases when the temperature rises.",
+     "keyTerms": [
+      "gases",
+      "decreases",
+      "temperature"
+     ],
+     "hint": "Think about these words: gases and decreases.",
+     "followUp": "Why does warm water hold less oxygen for fish?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-mass-and-volume",
+     "name": "Mass and volume",
+     "definition": "Mass is the amount of matter in an object, measured with a weighing balance. Volume is the space it occupies, measured with a measuring cylinder.",
+     "keyTerms": [
+      "mass",
+      "volume",
+      "space"
+     ],
+     "hint": "Think about these words: mass and volume.",
+     "followUp": "Which device measures the volume of a liquid?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-density",
+     "name": "Density",
+     "definition": "Density is the mass per unit volume of a substance. Density equals mass divided by volume.",
+     "keyTerms": [
+      "mass",
+      "volume",
+      "divided"
+     ],
+     "hint": "Think about these words: mass and volume.",
+     "followUp": "What is the formula for density?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-floating-and-sinking",
+     "name": "Floating and sinking",
+     "definition": "An object less dense than water floats on it. An object denser than water sinks.",
+     "keyTerms": [
+      "less dense",
+      "floats",
+      "sinks"
+     ],
+     "hint": "Think about these words: less dense and floats.",
+     "followUp": "Why does oil float on water?",
+     "misconceptions": []
+    },
+    {
+     "id": "c9-temperature-pressure-and-density",
+     "name": "Temperature, pressure and density",
+     "definition": "Density generally decreases when temperature rises, because substances expand. Pressure changes the density of gases a lot, but liquids and solids very little.",
+     "keyTerms": [
+      "temperature",
+      "decreases",
+      "pressure"
+     ],
+     "hint": "Think about these words: temperature and decreases.",
+     "followUp": "Why does hot air rise?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 10,
+   "title": "Light: Mirrors and Lenses",
+   "concepts": [
+    {
+     "id": "c10-spherical-mirrors",
+     "name": "Spherical mirrors",
+     "definition": "A spherical mirror has a curved reflecting surface. A concave mirror curves inward like the inside of a spoon. A convex mirror bulges outward like the back of a spoon.",
+     "keyTerms": [
+      "curved",
+      "concave",
+      "convex"
+     ],
+     "hint": "Think about these words: curved and concave.",
+     "followUp": "Which side of a spoon is like a concave mirror?",
+     "misconceptions": []
+    },
+    {
+     "id": "c10-image-in-a-concave-mirror",
+     "name": "Image in a concave mirror",
+     "definition": "The image in a concave mirror can be enlarged, diminished or the same size, and erect or inverted. It depends on how far the object is from the mirror.",
+     "keyTerms": [
+      "enlarged",
+      "inverted",
+      "distance"
+     ],
+     "hint": "Think about these words: enlarged and inverted.",
+     "followUp": "When does a concave mirror show an enlarged, erect image?",
+     "misconceptions": []
+    },
+    {
+     "id": "c10-image-in-a-convex-mirror",
+     "name": "Image in a convex mirror",
+     "definition": "The image in a convex mirror is always erect and smaller than the object. It shows a wide area, so it is used as a rear-view mirror.",
+     "keyTerms": [
+      "erect",
+      "diminished",
+      "rear-view"
+     ],
+     "hint": "Think about these words: erect and diminished.",
+     "followUp": "Why do vehicles use convex mirrors?",
+     "misconceptions": []
+    },
+    {
+     "id": "c10-laws-of-reflection",
+     "name": "Laws of reflection",
+     "definition": "First, the angle of incidence equals the angle of reflection. Second, the incident ray, the normal and the reflected ray all lie in the same plane. These laws hold for all mirrors.",
+     "keyTerms": [
+      "angle of incidence",
+      "angle of reflection",
+      "same plane"
+     ],
+     "hint": "Think about these words: angle of incidence and angle of reflection.",
+     "followUp": "If the angle of incidence is 30 degrees, what is the angle of reflection?",
+     "misconceptions": []
+    },
+    {
+     "id": "c10-converging-and-diverging-mirrors",
+     "name": "Converging and diverging mirrors",
+     "definition": "A concave mirror converges light: it brings the rays together. A convex mirror diverges light: it spreads the rays apart.",
+     "keyTerms": [
+      "concave converges",
+      "convex diverges",
+      "rays"
+     ],
+     "hint": "Think about these words: concave converges and convex diverges.",
+     "followUp": "Which mirror can focus sunlight to a point?",
+     "misconceptions": []
+    },
+    {
+     "id": "c10-lenses",
+     "name": "Lenses",
+     "definition": "A lens is a piece of transparent material with curved surfaces. A convex lens is thicker in the middle. A concave lens is thinner in the middle.",
+     "keyTerms": [
+      "transparent",
+      "convex",
+      "concave"
+     ],
+     "hint": "Think about these words: transparent and convex.",
+     "followUp": "Which lens is thicker in the middle?",
+     "misconceptions": []
+    },
+    {
+     "id": "c10-image-by-a-convex-lens",
+     "name": "Image by a convex lens",
+     "definition": "A convex lens converges light. Its image can be enlarged, diminished or the same size, and erect or inverted, depending on the distance of the object.",
+     "keyTerms": [
+      "converges",
+      "enlarged",
+      "inverted"
+     ],
+     "hint": "Think about these words: converges and enlarged.",
+     "followUp": "Which lens is used as a magnifying glass?",
+     "misconceptions": []
+    },
+    {
+     "id": "c10-image-by-a-concave-lens",
+     "name": "Image by a concave lens",
+     "definition": "A concave lens diverges light. Its image is always erect and smaller than the object.",
+     "keyTerms": [
+      "diverges",
+      "erect",
+      "diminished"
+     ],
+     "hint": "Think about these words: diverges and erect.",
+     "followUp": "Can a concave lens give an enlarged image?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 11,
+   "title": "Keeping Time with the Skies",
+   "concepts": [
+    {
+     "id": "c11-phases-of-the-moon",
+     "name": "Phases of the Moon",
+     "definition": "The bright part of the Moon that we see changes shape from day to day. These shapes, like new Moon, crescent and full Moon, are called phases.",
+     "keyTerms": [
+      "phases",
+      "new moon",
+      "full moon"
+     ],
+     "hint": "Think about these words: phases and new moon.",
+     "followUp": "Name two phases of the Moon.",
+     "misconceptions": []
+    },
+    {
+     "id": "c11-why-the-moon-has-phases",
+     "name": "Why the Moon has phases",
+     "definition": "Half of the Moon is always lit by the Sun. As the Moon moves around the Earth, we see different parts of its lit half, so its shape seems to change.",
+     "keyTerms": [
+      "sun lights",
+      "moves around earth",
+      "different parts"
+     ],
+     "hint": "Think about these words: sun lights and moves around earth.",
+     "followUp": "Does the Moon make its own light?",
+     "misconceptions": []
+    },
+    {
+     "id": "c11-the-moon-s-monthly-cycle",
+     "name": "The Moon's monthly cycle",
+     "definition": "One full cycle of the phases of the Moon takes about a month.",
+     "keyTerms": [
+      "cycle",
+      "about a month",
+      "phases"
+     ],
+     "hint": "Think about these words: cycle and about a month.",
+     "followUp": "About how long from one full Moon to the next?",
+     "misconceptions": []
+    },
+    {
+     "id": "c11-how-calendars-began",
+     "name": "How calendars began",
+     "definition": "People noticed cycles in nature: day and night, the phases of the Moon, and the seasons. They used these cycles to make calendars.",
+     "keyTerms": [
+      "cycles",
+      "calendar",
+      "seasons"
+     ],
+     "hint": "Think about these words: cycles and calendar.",
+     "followUp": "Which natural cycle gives us a month?",
+     "misconceptions": []
+    },
+    {
+     "id": "c11-lunar-calendar",
+     "name": "Lunar calendar",
+     "definition": "A lunar calendar follows the cycle of the Moon. Its months follow the phases of the Moon.",
+     "keyTerms": [
+      "lunar",
+      "moon",
+      "months"
+     ],
+     "hint": "Think about these words: lunar and moon.",
+     "followUp": "What does a lunar calendar follow?",
+     "misconceptions": []
+    },
+    {
+     "id": "c11-solar-calendar",
+     "name": "Solar calendar",
+     "definition": "A solar calendar follows the cycle of the seasons, which depends on the position of the Earth in its orbit around the Sun.",
+     "keyTerms": [
+      "solar",
+      "seasons",
+      "sun"
+     ],
+     "hint": "Think about these words: solar and seasons.",
+     "followUp": "What does a solar calendar follow?",
+     "misconceptions": []
+    },
+    {
+     "id": "c11-luni-solar-calendar",
+     "name": "Luni-solar calendar",
+     "definition": "A luni-solar calendar follows both the Moon and the seasons. It adds an extra month from time to time to stay in step with the seasons.",
+     "keyTerms": [
+      "both",
+      "extra month",
+      "moon and sun"
+     ],
+     "hint": "Think about these words: both and extra month.",
+     "followUp": "Why does a luni-solar calendar add an extra month?",
+     "misconceptions": []
+    },
+    {
+     "id": "c11-indian-national-calendar",
+     "name": "Indian National Calendar",
+     "definition": "The Indian National Calendar is a solar calendar used officially in India along with the Gregorian calendar. Its year begins with the month of Chaitra.",
+     "keyTerms": [
+      "national calendar",
+      "solar",
+      "chaitra"
+     ],
+     "hint": "Think about these words: national calendar and solar.",
+     "followUp": "Which month begins the Indian National Calendar?",
+     "misconceptions": []
+    },
+    {
+     "id": "c11-festivals-and-astronomy",
+     "name": "Festivals and astronomy",
+     "definition": "Many festivals are fixed by the position of the Moon or the Sun. That is why some festivals fall on different dates each year.",
+     "keyTerms": [
+      "festivals",
+      "moon",
+      "dates change"
+     ],
+     "hint": "Think about these words: festivals and moon.",
+     "followUp": "Why does Diwali fall on a different date each year?",
+     "misconceptions": []
+    },
+    {
+     "id": "c11-artificial-satellites",
+     "name": "Artificial satellites",
+     "definition": "Artificial satellites are human-made objects launched from the Earth to orbit it. They help with communication, weather forecasting, navigation and the study of space.",
+     "keyTerms": [
+      "human-made",
+      "orbit",
+      "communication"
+     ],
+     "hint": "Think about these words: human-made and orbit.",
+     "followUp": "Give one use of an artificial satellite.",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 12,
+   "title": "How Nature Works in Harmony",
+   "concepts": [
+    {
+     "id": "c12-habitat",
+     "name": "Habitat",
+     "definition": "A habitat is a place that gives an organism the right conditions to live and grow.",
+     "keyTerms": [
+      "habitat",
+      "place",
+      "live"
+     ],
+     "hint": "Think about these words: habitat and place.",
+     "followUp": "What is the habitat of a fish?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-biotic-and-abiotic-components",
+     "name": "Biotic and abiotic components",
+     "definition": "Biotic components are the living parts of a habitat: plants, animals and microbes. Abiotic components are the non-living parts: air, water, soil and temperature.",
+     "keyTerms": [
+      "biotic",
+      "abiotic",
+      "living"
+     ],
+     "hint": "Think about these words: biotic and abiotic.",
+     "followUp": "Is soil biotic or abiotic?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-population-and-community",
+     "name": "Population and community",
+     "definition": "All organisms of one kind living in an area form a population. All the different populations living together in that area form a community.",
+     "keyTerms": [
+      "population",
+      "community",
+      "together"
+     ],
+     "hint": "Think about these words: population and community.",
+     "followUp": "Do all organisms in a community play the same role?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-ecosystem",
+     "name": "Ecosystem",
+     "definition": "An ecosystem is formed by the interaction between the living and non-living components of an area.",
+     "keyTerms": [
+      "ecosystem",
+      "interaction",
+      "living and non-living"
+     ],
+     "hint": "Think about these words: ecosystem and interaction.",
+     "followUp": "What two kinds of components make an ecosystem?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-types-of-ecosystems",
+     "name": "Types of ecosystems",
+     "definition": "Ecosystems can be terrestrial, on land, such as forests, grasslands and deserts. They can be aquatic, in water, such as ponds, lakes and oceans.",
+     "keyTerms": [
+      "terrestrial",
+      "aquatic",
+      "forest"
+     ],
+     "hint": "Think about these words: terrestrial and aquatic.",
+     "followUp": "Is a pond a terrestrial or an aquatic ecosystem?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-producers-consumers-and-decomposers",
+     "name": "Producers, consumers and decomposers",
+     "definition": "Producers, like plants, make their own food. Consumers eat plants or animals. Decomposers, like bacteria and fungi, break down dead matter.",
+     "keyTerms": [
+      "producers",
+      "consumers",
+      "decomposers"
+     ],
+     "hint": "Think about these words: producers and consumers.",
+     "followUp": "Is a mushroom a producer or a decomposer?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-food-chain-and-food-web",
+     "name": "Food chain and food web",
+     "definition": "A food chain shows who eats whom in an ecosystem. A food web shows how many food chains are connected.",
+     "keyTerms": [
+      "food chain",
+      "food web",
+      "who eats whom"
+     ],
+     "hint": "Think about these words: food chain and food web.",
+     "followUp": "Make a food chain with grass, a deer and a tiger.",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-trophic-levels",
+     "name": "Trophic levels",
+     "definition": "The position of an organism in a food chain is called its trophic level. Producers are the first level.",
+     "keyTerms": [
+      "trophic level",
+      "position",
+      "food chain"
+     ],
+     "hint": "Think about these words: trophic level and position.",
+     "followUp": "At which trophic level are plants?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-mutualism-commensalism-and-parasitism",
+     "name": "Mutualism, commensalism and parasitism",
+     "definition": "In mutualism both organisms benefit. In commensalism one benefits and the other is not affected. In parasitism one benefits and the other is harmed.",
+     "keyTerms": [
+      "mutualism",
+      "commensalism",
+      "parasitism"
+     ],
+     "hint": "Think about these words: mutualism and commensalism.",
+     "followUp": "A tick on a dog: which relationship is this?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-waste-in-nature",
+     "name": "Waste in nature",
+     "definition": "Decomposers break down dead plants, animals and waste, and recycle the nutrients back into the soil. Nothing is wasted in nature.",
+     "keyTerms": [
+      "decomposers",
+      "recycle",
+      "nutrients"
+     ],
+     "hint": "Think about these words: decomposers and recycle.",
+     "followUp": "What would a forest floor look like without decomposers?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-balance-in-an-ecosystem",
+     "name": "Balance in an ecosystem",
+     "definition": "A change in one part of an ecosystem affects the other parts. The interactions between organisms keep the ecosystem in balance.",
+     "keyTerms": [
+      "balance",
+      "change",
+      "affects"
+     ],
+     "hint": "Think about these words: balance and change.",
+     "followUp": "What may happen to deer if all tigers disappear?",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-benefits-of-ecosystems",
+     "name": "Benefits of ecosystems",
+     "definition": "Ecosystems give us clean air, water, food and medicine, and help control the climate. Human-made ecosystems, like farms, depend on healthy natural ones.",
+     "keyTerms": [
+      "clean air",
+      "food",
+      "climate"
+     ],
+     "hint": "Think about these words: clean air and food.",
+     "followUp": "Name two things a forest gives us.",
+     "misconceptions": []
+    },
+    {
+     "id": "c12-threats-and-conservation",
+     "name": "Threats and conservation",
+     "definition": "Pollution, deforestation, habitat loss, climate change, invasive species and overuse of resources harm ecosystems. National parks and sanctuaries help protect them.",
+     "keyTerms": [
+      "pollution",
+      "deforestation",
+      "national parks"
+     ],
+     "hint": "Think about these words: pollution and deforestation.",
+     "followUp": "How does a national park protect animals?",
+     "misconceptions": []
+    }
+   ]
+  },
+  {
+   "number": 13,
+   "title": "Our Home: Earth, a Unique Life Sustaining Planet",
+   "concepts": [
+    {
+     "id": "c13-earth-as-a-unique-planet",
+     "name": "Earth as a unique planet",
+     "definition": "The Earth is the only planet in the solar system known to support life. Other planets are too hot, too cold, or lack liquid water and a suitable atmosphere.",
+     "keyTerms": [
+      "earth",
+      "life",
+      "liquid water"
+     ],
+     "hint": "Think about these words: earth and life.",
+     "followUp": "Why is there no life on Mercury?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-habitable-zone",
+     "name": "Habitable zone",
+     "definition": "The Earth orbits the Sun at a distance where it is neither too hot nor too cold, so water stays liquid. This region is called the habitable zone or Goldilocks zone.",
+     "keyTerms": [
+      "habitable zone",
+      "distance",
+      "liquid water"
+     ],
+     "hint": "Think about these words: habitable zone and distance.",
+     "followUp": "What is another name for the habitable zone?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-earth-s-orbit",
+     "name": "Earth's orbit",
+     "definition": "The Earth moves around the Sun in a nearly circular orbit. So it does not become too hot or too cold at any time of the year.",
+     "keyTerms": [
+      "nearly circular",
+      "orbit",
+      "sun"
+     ],
+     "hint": "Think about these words: nearly circular and orbit.",
+     "followUp": "What shape is the Earth's orbit?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-size-and-gravity-of-the-earth",
+     "name": "Size and gravity of the Earth",
+     "definition": "The Earth's gravity is strong enough to hold its atmosphere, and not so strong that living things are crushed by their own weight.",
+     "keyTerms": [
+      "gravity",
+      "atmosphere",
+      "size"
+     ],
+     "hint": "Think about these words: gravity and atmosphere.",
+     "followUp": "What would happen to our air if the Earth had very weak gravity?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-ozone-layer",
+     "name": "Ozone layer",
+     "definition": "Ozone in the atmosphere stops harmful ultraviolet rays of the Sun from reaching the surface of the Earth.",
+     "keyTerms": [
+      "ozone",
+      "ultraviolet",
+      "protects"
+     ],
+     "hint": "Think about these words: ozone and ultraviolet.",
+     "followUp": "Which rays does the ozone layer block?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-magnetic-field-of-the-earth",
+     "name": "Magnetic field of the Earth",
+     "definition": "The Earth's magnetic field shields it from high-energy particles from space that could destroy life.",
+     "keyTerms": [
+      "magnetic field",
+      "shield",
+      "particles"
+     ],
+     "hint": "Think about these words: magnetic field and shield.",
+     "followUp": "What does the Earth's magnetic field protect us from?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-spheres-of-the-earth",
+     "name": "Spheres of the Earth",
+     "definition": "The atmosphere is air, the hydrosphere is water, the geosphere is the solid Earth, and the biosphere is life. They interact and together sustain life.",
+     "keyTerms": [
+      "atmosphere",
+      "hydrosphere",
+      "biosphere"
+     ],
+     "hint": "Think about these words: atmosphere and hydrosphere.",
+     "followUp": "Which sphere do rivers and oceans belong to?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-reproduction",
+     "name": "Reproduction",
+     "definition": "Reproduction is the process by which living things produce young ones of their own kind. It keeps life going on the Earth.",
+     "keyTerms": [
+      "reproduction",
+      "young ones",
+      "continuity"
+     ],
+     "hint": "Think about these words: reproduction and young ones.",
+     "followUp": "Why is reproduction needed for a species?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-asexual-reproduction",
+     "name": "Asexual reproduction",
+     "definition": "In asexual reproduction a single parent produces new individuals that are exact copies of itself.",
+     "keyTerms": [
+      "single parent",
+      "exact copies",
+      "asexual"
+     ],
+     "hint": "Think about these words: single parent and exact copies.",
+     "followUp": "How many parents are needed in asexual reproduction?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-sexual-reproduction",
+     "name": "Sexual reproduction",
+     "definition": "In sexual reproduction two parents are involved, and the young ones can show new features that differ from the parents.",
+     "keyTerms": [
+      "two parents",
+      "new features",
+      "sexual"
+     ],
+     "hint": "Think about these words: two parents and new features.",
+     "followUp": "Why do children not look exactly like one parent?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-development-of-the-embryo",
+     "name": "Development of the embryo",
+     "definition": "After fertilisation, a zygote forms and develops into an embryo. In some animals this happens inside the mother's body, and in others outside, in eggs.",
+     "keyTerms": [
+      "zygote",
+      "embryo",
+      "inside or outside"
+     ],
+     "hint": "Think about these words: zygote and embryo.",
+     "followUp": "Where does a chick embryo develop?",
+     "misconceptions": []
+    },
+    {
+     "id": "c13-triple-planetary-crisis",
+     "name": "Triple planetary crisis",
+     "definition": "Climate change, loss of biodiversity and pollution together threaten life on the Earth. They are called the triple planetary crisis.",
+     "keyTerms": [
+      "climate change",
+      "biodiversity loss",
+      "pollution"
+     ],
+     "hint": "Think about these words: climate change and biodiversity loss.",
+     "followUp": "Name the three parts of the triple planetary crisis.",
+     "misconceptions": []
+    }
+   ]
+  }
+ ]
+}

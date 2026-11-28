@@ -18,7 +18,8 @@ const SARVAM_MODEL = process.env.SARVAM_MODEL || 'saaras:v4';
 // Email sign-in is optional. Without RESEND_API_KEY the app runs as a guest, and sign-in links are logged to the console for local testing.
 const RESEND_API_KEY = (process.env.RESEND_API_KEY || '').trim();
 // Demo sign-in: name and email sign the student in at once, with no link. For judges and testing only.
-const DEMO_SIGNIN = /^(1|true)$/i.test(process.env.DEMO_SIGNIN || '');
+// It is also used when no email service is set up, so the app is usable with no keys at all.
+const DEMO_SIGNIN = /^(1|true)$/i.test(process.env.DEMO_SIGNIN || '') || !RESEND_API_KEY;
 const MAIL_FROM = process.env.MAIL_FROM || 'Study Partner <onboarding@resend.dev>';
 const SESSION_DAYS = 30;
 const LINK_MINUTES = 15;
@@ -35,6 +36,12 @@ const LANGUAGES = ['Hindi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam'];
 const LANG_CODES = { Hindi: 'hi-IN', Tamil: 'ta-IN', Telugu: 'te-IN', Kannada: 'kn-IN', Malayalam: 'ml-IN', English: 'en-IN' };
 
 const chapter = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'class8-science.json'), 'utf8'));
+// The built-in syllabus: every concept of NCERT Class 8 Science, chapter by chapter (see tools/build-syllabus.js).
+const syllabus = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'syllabus-class8-science.json'), 'utf8'));
+const ALL_CONCEPTS = syllabus.chapters.flatMap((ch) =>
+  ch.concepts.map((c) => ({ ...c, chapter: ch.number, chapterTitle: ch.title }))
+);
+const DATABASE_URL = (process.env.DATABASE_URL || '').trim();
 // Regional-language words for each key term. Matching accepts them as correct. Needs teacher review.
 const aliases = readOptionalJson(path.join(DATA_DIR, 'aliases.json'), {});
 
@@ -57,22 +64,49 @@ function readOptionalJson(file, fallback) {
 
 // ---------- progress storage, one record per student ----------
 
-function loadAll() {
-  const all = readOptionalJson(PROGRESS_FILE, { students: {} });
-  all.students = all.students || {};
-  return all;
+// Progress lives in memory while the server runs. It is saved to Postgres when DATABASE_URL is set
+// (so it survives restarts and deploys), and to a local file otherwise.
+const store = { students: {}, pool: null, kind: 'file' };
+
+async function initStorage() {
+  if (DATABASE_URL) {
+    try {
+      const { Pool } = require('pg');
+      const pool = new Pool({ connectionString: DATABASE_URL, max: 3 });
+      await pool.query(
+        'create table if not exists students (id text primary key, data jsonb not null, updated_at timestamptz not null default now())'
+      );
+      const { rows } = await pool.query('select id, data from students');
+      for (const row of rows) store.students[row.id] = row.data;
+      store.pool = pool;
+      store.kind = 'database';
+      return;
+    } catch (err) {
+      console.error('Database is not reachable, so progress is kept in a local file:', err.message);
+    }
+  }
+  store.students = readOptionalJson(PROGRESS_FILE, { students: {} }).students || {};
 }
 
 function loadProgress(studentId) {
-  return loadAll().students[studentId] || { attempts: [] };
+  const saved = store.students[studentId];
+  return saved ? JSON.parse(JSON.stringify(saved)) : { attempts: [] };
 }
 
 function saveProgress(studentId, progress) {
+  store.students[studentId] = progress;
+  if (store.pool) {
+    store.pool
+      .query(
+        'insert into students (id, data, updated_at) values ($1, $2, now()) on conflict (id) do update set data = excluded.data, updated_at = now()',
+        [studentId, JSON.stringify(progress)]
+      )
+      .catch((err) => console.error('Could not save progress to the database:', err.message));
+    return;
+  }
   try {
-    const all = loadAll();
-    all.students[studentId] = progress;
     fs.mkdirSync(path.dirname(PROGRESS_FILE), { recursive: true });
-    fs.writeFileSync(PROGRESS_FILE, JSON.stringify(all, null, 2));
+    fs.writeFileSync(PROGRESS_FILE, JSON.stringify({ students: store.students }, null, 2));
   } catch (err) {
     console.error('Could not save progress:', err.message);
   }
@@ -202,8 +236,14 @@ function readRawBody(req, maxBytes) {
   });
 }
 
-function findConcept(conceptId) {
-  return chapter.concepts.find((c) => c.id === conceptId);
+function findConcept(conceptId, progress) {
+  return (progress ? conceptsFor(progress) : ALL_CONCEPTS).find((c) => c.id === conceptId);
+}
+
+function sourceFor(concept) {
+  return typeof concept.chapter === 'number'
+    ? `${syllabus.book}, Chapter ${concept.chapter}: ${concept.chapterTitle}`
+    : `${concept.chapterTitle} (concept list drafted by AI; check with your textbook)`;
 }
 
 function clampScore(n) {
@@ -324,7 +364,7 @@ function demoGradeEnglish(concept, sentence) {
 
 // ---------- Claude grading (needs ANTHROPIC_API_KEY) ----------
 
-async function claudeJson(system, user) {
+async function claudeJson(system, user, maxTokens = 500) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -334,7 +374,7 @@ async function claudeJson(system, user) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 400,
+      max_tokens: maxTokens,
       system,
       messages: [{ role: 'user', content: user }],
     }),
@@ -475,8 +515,9 @@ function parseExamDemo(text) {
 async function claudeParseExam(text) {
   const system =
     "Extract exam details from a student's spoken description. Reply ONLY with JSON: " +
-    '{"class":number|null,"subject":string|null,"chapters":[from,to]|null,"examDate":"YYYY-MM-DD"|null,"preparedPct":number|null}. ' +
-    'Use null for anything not stated. Do not guess.';
+    '{"class":number|null,"subject":string|null,"chapters":[from,to]|null,"topics":["chapter or topic names, if the student named any"]|null,' +
+    '"examDate":"YYYY-MM-DD"|null,"preparedPct":number|null}. ' +
+    `Today is ${todayKey()}; a date with no year means the next such date. Use null for anything not stated. Do not guess.`;
   return claudeJson(system, text);
 }
 
@@ -484,9 +525,8 @@ function examQuestions(parsed) {
   const questions = [];
   if (!parsed.class) questions.push('Which class is it?');
   if (!parsed.subject) questions.push('Which subject?');
-  if (!parsed.chapters) questions.push('Which chapters does the exam cover?');
+  if (!parsed.chapters && !(parsed.topics && parsed.topics.length)) questions.push('Which chapters does the exam cover?');
   if (!parsed.examDate) questions.push('When is the exam?');
-  if (parsed.preparedPct == null) questions.push('About how much have you prepared, in percent?');
   return questions;
 }
 
@@ -495,6 +535,9 @@ function examQuestions(parsed) {
 // Spaced review: a correct answer doubles the wait, a hesitant one keeps it, a failure resets it to one day.
 function updateMemory(progress, conceptId, score) {
   progress.memory = progress.memory || {};
+  // The first time a concept is explained well enough, note the day. The plan counts it as learned.
+  progress.learnedOn = progress.learnedOn || {};
+  if (score >= LEARNED_SCORE && !progress.learnedOn[conceptId]) progress.learnedOn[conceptId] = todayKey();
   const prev = progress.memory[conceptId] || { interval: 1 };
   const correct = score >= 85;
   const hesitant = score >= 60 && score < 85;
@@ -507,10 +550,172 @@ function updateMemory(progress, conceptId, score) {
   };
 }
 
+// ---------- exams, scope and the study plan ----------
+
+const LEARNED_SCORE = 60;
+
+function todayKey() {
+  // The study day follows Indian time.
+  return new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+}
+
+function conceptsFor(progress) {
+  return ALL_CONCEPTS.concat(progress.custom || []);
+}
+
+function isLearned(memory, id) {
+  return Boolean(memory[id] && memory[id].lastScore >= LEARNED_SCORE);
+}
+
+// Exams still ahead, soonest first. With no exam set up, a small demo exam on Chapter 2 is used.
+function examsOf(progress) {
+  const upcoming = (progress.exams || []).filter((e) => e.examDate >= todayKey());
+  if (upcoming.length) return upcoming.sort((a, b) => a.examDate.localeCompare(b.examDate));
+  return [{
+    id: 'demo',
+    isDefault: true,
+    class: 8,
+    subject: 'Science',
+    chapters: [2, 2],
+    examDate: chapter.examDate,
+    conceptIds: ALL_CONCEPTS.filter((c) => c.chapter === 2).map((c) => c.id),
+  }];
+}
+
+// Every concept the student must know, in the order to learn it: soonest exam first, then book order.
+function scopeConcepts(progress) {
+  const byId = new Map(conceptsFor(progress).map((c) => [c.id, c]));
+  const seen = new Set();
+  const list = [];
+  for (const exam of examsOf(progress)) {
+    for (const id of exam.conceptIds) {
+      if (seen.has(id) || !byId.has(id)) continue;
+      seen.add(id);
+      list.push(byId.get(id));
+    }
+  }
+  return list;
+}
+
+// The plan is worked out fresh each day, so a missed day is caught up automatically:
+// what is still unlearned is spread over the learning days left before each exam.
+// The last days before an exam (up to five) are kept for revision.
+function buildPlan(progress) {
+  const memory = progress.memory || {};
+  const scope = scopeConcepts(progress);
+  const byId = new Map(scope.map((c) => [c.id, c]));
+  const counted = new Set();
+  let stillToLearn = 0;
+  let quota = 0;
+
+  const exams = examsOf(progress).map((exam) => {
+    const daysLeft = daysUntil(exam.examDate);
+    const revisionDays = Math.min(5, Math.floor(daysLeft * 0.2));
+    const learnDays = Math.max(1, daysLeft - revisionDays);
+    for (const id of exam.conceptIds) {
+      if (counted.has(id) || !byId.has(id)) continue;
+      counted.add(id);
+      if (!isLearned(memory, id)) stillToLearn += 1;
+    }
+    const needPerDay = Math.ceil(stillToLearn / learnDays);
+    quota = Math.max(quota, needPerDay);
+    const ids = exam.conceptIds.filter((id) => byId.has(id));
+    return {
+      id: exam.id,
+      isDefault: Boolean(exam.isDefault),
+      generated: Boolean(exam.generated),
+      class: exam.class,
+      subject: exam.subject,
+      chapters: exam.chapters || null,
+      topics: exam.topics || null,
+      examDate: exam.examDate,
+      daysLeft,
+      revisionDays,
+      total: ids.length,
+      learned: ids.filter((id) => isLearned(memory, id)).length,
+      needPerDay,
+    };
+  });
+
+  const unlearned = scope.filter((c) => !isLearned(memory, c.id));
+  const learnedToday = Object.values(progress.learnedOn || {}).filter((day) => day === todayKey()).length;
+  const learnNow = unlearned.slice(0, Math.max(0, quota - learnedToday));
+  const reviewNow = scope
+    .filter((c) => isLearned(memory, c.id) && memory[c.id].nextReview <= Date.now())
+    .slice(0, 5);
+  const item = (c, kind) => ({ conceptId: c.id, name: c.name, chapter: c.chapter, kind });
+
+  // A day-by-day view of what is left, at today's pace.
+  const days = [];
+  let cursor = 0;
+  for (let d = 0; cursor < unlearned.length && d < 120; d += 1) {
+    const take = d === 0 ? learnNow.length : quota;
+    const slice = unlearned.slice(cursor, cursor + take);
+    cursor += take;
+    if (!slice.length) continue;
+    const date = new Date(Date.now() + 5.5 * 3600000 + d * 86400000).toISOString().slice(0, 10);
+    days.push({ day: d + 1, date, concepts: slice.map((c) => c.name), chapter: slice[0].chapter });
+  }
+
+  return {
+    exams,
+    quota,
+    learnedToday,
+    today: learnNow.map((c) => item(c, 'learn')).concat(reviewNow.map((c) => item(c, 'review'))),
+    days,
+    totals: { total: scope.length, learned: scope.length - unlearned.length },
+    heavy: quota > 8,
+    hasExam: !exams[0].isDefault,
+  };
+}
+
+// A short spoken summary of the plan.
+function planSummary(plan) {
+  const first = plan.exams[0];
+  const left = plan.totals.total - plan.totals.learned;
+  const todayNames = plan.today.filter((t) => t.kind === 'learn').slice(0, 3).map((t) => t.name).join(', ');
+  return (
+    `Your ${first.subject} exam is in ${first.daysLeft} days. ` +
+    `There are ${left} concepts left to learn. That is ${plan.quota} a day. ` +
+    (plan.heavy ? 'That is a heavy plan, so start today. ' : '') +
+    (todayNames ? `Today we start with ${todayNames}.` : 'You are done for today.')
+  );
+}
+
+// Concepts for an exam on the built-in syllabus, by chapter range.
+function builtInConceptIds(parsed) {
+  if (parsed.class !== 8 || !/science/i.test(parsed.subject || '') || !parsed.chapters) return null;
+  const [from, to] = parsed.chapters;
+  const ids = ALL_CONCEPTS.filter((c) => c.chapter >= from && c.chapter <= to).map((c) => c.id);
+  return ids.length ? ids : null;
+}
+
+// For any other class or subject, Claude drafts the concept list from the chapter names the student gives.
+async function claudeDraftConcepts(parsed) {
+  const system =
+    `List what a Class ${parsed.class} student in India must know for a ${parsed.subject} exam on the given chapters. ` +
+    'Give 5 to 9 concepts for each chapter, covering the whole chapter. Reply ONLY with JSON: ' +
+    '{"chapters":[{"title":"...","concepts":[{"name":"...","definition":"one or two plain sentences","keyTerms":["three","short","terms"],"followUp":"one short question"}]}]}';
+  const result = await claudeJson(system, `Chapters: ${parsed.topics.join('; ')}`, 6000);
+  const stamp = Date.now().toString(36);
+  return (result.chapters || []).flatMap((ch, ci) =>
+    (ch.concepts || []).map((c, i) => ({
+      id: `x${stamp}-${ci}-${i}`,
+      name: String(c.name || '').slice(0, 80),
+      definition: String(c.definition || '').slice(0, 400),
+      keyTerms: (c.keyTerms || []).slice(0, 4).map((t) => String(t).slice(0, 40)),
+      hint: `Think about these words: ${(c.keyTerms || []).slice(0, 2).join(' and ')}.`,
+      followUp: String(c.followUp || 'Can you give an example?').slice(0, 200),
+      misconceptions: [],
+      chapter: String(ch.title || parsed.subject).slice(0, 60),
+      chapterTitle: String(ch.title || parsed.subject).slice(0, 60),
+    }))
+  );
+}
+
 function dueConcepts(progress) {
   const memory = progress.memory || {};
-  const now = Date.now();
-  return chapter.concepts.filter((c) => !memory[c.id] || memory[c.id].nextReview <= now);
+  return scopeConcepts(progress).filter((c) => isLearned(memory, c.id) && memory[c.id].nextReview <= Date.now());
 }
 
 // Adaptive language: home language first, then mixed, then English, as the student's English share rises.
@@ -526,10 +731,13 @@ function languageMode(progress, conceptId) {
 // Rapid-fire: weak and due concepts first, then the rest in a varied order.
 function rapidFireQueue(progress) {
   const memory = progress.memory || {};
-  const weak = chapter.concepts.filter((c) => memory[c.id] && memory[c.id].lastResult !== 'correct').map((c) => c.id);
+  const scope = scopeConcepts(progress);
+  const weak = scope.filter((c) => memory[c.id] && memory[c.id].lastResult !== 'correct').map((c) => c.id);
   const due = dueConcepts(progress).map((c) => c.id);
-  const rest = chapter.concepts.map((c) => c.id).sort(() => Math.random() - 0.5);
-  return [...new Set([...weak, ...due, ...rest])].slice(0, 5);
+  // Concepts already studied come before ones not yet started.
+  const studied = scope.filter((c) => memory[c.id]).map((c) => c.id).sort(() => Math.random() - 0.5);
+  const rest = scope.map((c) => c.id);
+  return [...new Set([...weak, ...due, ...studied, ...rest])].slice(0, 5);
 }
 
 // Daily history for the dashboard chart: one point per day, the last 14 days with answers.
@@ -549,29 +757,31 @@ function dailyHistory(explains) {
 
 function buildDashboard(progress) {
   const attempts = progress.attempts;
-  const exam = progress.exam || {};
+  const plan = buildPlan(progress);
+  const scope = scopeConcepts(progress);
+  const memory = progress.memory || {};
   const explains = attempts.filter((a) => a.type === 'explain');
   const recalls = attempts.filter((a) => a.type === 'recall');
   const englishPractice = attempts.filter((a) => a.type === 'english');
-  const practised = new Set(explains.map((a) => a.conceptId));
-  const total = chapter.concepts.length;
+  const total = scope.length;
+  const learned = plan.totals.learned;
 
   const bestByConcept = {};
   for (const a of explains) {
     bestByConcept[a.conceptId] = Math.max(bestByConcept[a.conceptId] || 0, a.score);
   }
-  const mastery = Math.round(average(Object.values(bestByConcept)));
+  const scopeScores = scope.filter((c) => bestByConcept[c.id] !== undefined).map((c) => bestByConcept[c.id]);
+  const mastery = Math.round(average(scopeScores));
   const retention = recalls.length ? Math.round((recalls.filter((a) => a.passed).length / recalls.length) * 100) : 0;
 
-  // Readiness: unpractised concepts count as zero, as in the brief.
-  const readiness = Math.round(chapter.concepts.reduce((s, c) => s + (bestByConcept[c.id] || 0), 0) / total);
+  // Confidence: concepts not yet practised count as zero, so it only rises as the syllabus is covered.
+  const readiness = Math.round(scope.reduce((s, c) => s + (bestByConcept[c.id] || 0), 0) / Math.max(1, total));
   // The range narrows as more explanations are graded (about 1/sqrt(n), kept between 5 and 30 points).
   const spread = Math.max(5, Math.min(30, Math.round(40 / Math.sqrt(explains.length + 1))));
 
-  const examDate = exam.examDate || chapter.examDate;
-  const daysLeft = daysUntil(examDate);
+  const first = plan.exams[0];
   const weekAgo = Date.now() - 7 * 86400000;
-  const practisedThisWeek = new Set(explains.filter((a) => a.at >= weekAgo).map((a) => a.conceptId)).size;
+  const learnedThisWeek = Object.values(progress.learnedOn || {}).filter((d) => new Date(d).getTime() >= weekAgo).length;
 
   // Fluency: filler words and response delay from the browser's timing. Estimate only.
   const withMeta = explains.filter((a) => a.meta);
@@ -588,50 +798,39 @@ function buildDashboard(progress) {
     : null;
   const termsLearned = new Set(explains.flatMap((a) => a.termsHit || [])).size;
 
-  const memory = progress.memory || {};
-  const due = dueConcepts(progress);
-  const todayPlan = chapter.concepts
-    .filter((c) => !practised.has(c.id))
-    .map((c) => `Explain: ${c.name}`)
-    .concat(due.filter((c) => practised.has(c.id)).map((c) => `Review: ${c.name}`))
-    .slice(0, 5);
+  const strong = scope.filter((c) => (bestByConcept[c.id] || 0) >= 85).map((c) => c.name);
+  const weak = scope.filter((c) => bestByConcept[c.id] !== undefined && bestByConcept[c.id] < LEARNED_SCORE).map((c) => c.name);
+  const chaptersLeft = new Set(scope.filter((c) => !isLearned(memory, c.id)).map((c) => c.chapter)).size;
 
   return {
-    chapter: chapter.title,
-    exam: { class: exam.class || 8, subject: exam.subject || 'Science', preparedPct: exam.preparedPct ?? null },
-    examDate,
-    daysLeft,
-    coverage: {
-      practised: practised.size,
-      total,
-      pct: Math.round((practised.size / total) * 100),
-      chaptersLeft: practised.size === total ? 0 : 1,
-    },
+    chapter: plan.exams.map((e) => `${e.subject}, Class ${e.class}`).join(' · '),
+    exam: { class: first.class, subject: first.subject, preparedPct: null },
+    exams: plan.exams,
+    examDate: first.examDate,
+    daysLeft: first.daysLeft,
+    coverage: { practised: learned, total, pct: Math.round((learned / Math.max(1, total)) * 100), chaptersLeft },
     mastery,
     retention,
     fluency,
     englishReadiness,
     englishPractice: englishPractice.length,
     termsLearned,
-    pace: {
-      needPerDay: Math.round(((total - practised.size) / Math.max(1, daysLeft)) * 10) / 10,
-      actualPerDay: Math.round((practisedThisWeek / 7) * 10) / 10,
-    },
+    pace: { needPerDay: plan.quota, actualPerDay: Math.round((learnedThisWeek / 7) * 10) / 10 },
     readiness: {
       score: readiness,
       low: Math.max(0, readiness - spread),
       high: Math.min(100, readiness + spread),
       label: 'Estimate, not a guarantee.',
     },
-    due: due.length,
+    due: plan.today.length,
     history: dailyHistory(explains),
-    todayPlan,
+    todayPlan: plan.today.map((t) => `${t.kind === 'learn' ? 'Learn' : 'Review'}: ${t.name}`),
+    strong: strong.slice(0, 5),
+    weak: weak.slice(0, 5),
     lastLanguage: progress.lastLanguage || null,
-    memoryCount: Object.keys(memory).length,
     mode: API_KEY ? 'claude' : 'demo',
   };
 }
-
 // ---------- routes ----------
 
 async function handleApi(req, res, url) {
@@ -643,6 +842,7 @@ async function handleApi(req, res, url) {
       model: API_KEY ? MODEL : null,
       stt: SARVAM_KEY ? 'sarvam' : 'browser',
       tts: SARVAM_KEY ? 'sarvam' : 'browser',
+      storage: store.kind,
       sttModel: SARVAM_KEY ? SARVAM_MODEL : null,
       languages: LANGUAGES,
     });
@@ -660,7 +860,7 @@ async function handleApi(req, res, url) {
       signedIn: Boolean(session),
       name: session ? session.name : null,
       lastLanguage: progress.lastLanguage || null,
-      examSet: Boolean(progress.exam),
+      examSet: Boolean((progress.exams || []).length),
     });
   }
 
@@ -712,10 +912,12 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/chapter') {
+    const progress = loadProgress(studentId);
+    const exams = examsOf(progress);
     return sendJson(res, 200, {
-      title: chapter.title,
-      examDate: chapter.examDate,
-      concepts: chapter.concepts.map((c) => ({ id: c.id, name: c.name, definition: c.definition })),
+      title: exams.map((e) => `${e.subject}, Class ${e.class}`).join(' · '),
+      examDate: exams[0].examDate,
+      concepts: scopeConcepts(progress).map((c) => ({ id: c.id, name: c.name, definition: c.definition, chapter: c.chapter })),
     });
   }
 
@@ -736,7 +938,7 @@ async function handleApi(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/explain') {
     const body = await readJsonBody(req);
-    const concept = findConcept(body.conceptId);
+    const concept = findConcept(body.conceptId, loadProgress(studentId));
     if (!concept) return sendJson(res, 404, { error: 'Unknown concept' });
     const answer = String(body.answer || '').slice(0, 2000);
     if (!answer.trim()) return sendJson(res, 400, { error: 'Empty answer' });
@@ -755,7 +957,7 @@ async function handleApi(req, res, url) {
     }
 
     // Grounded feedback: name the concept and its source so the student can see where it comes from.
-    result.citation = { concept: concept.name, source: CHAPTER_SOURCE };
+    result.citation = { concept: concept.name, source: sourceFor(concept) };
 
     const meta = body.meta && typeof body.meta === 'object' ? body.meta : {};
     const progress = loadProgress(studentId);
@@ -776,6 +978,11 @@ async function handleApi(req, res, url) {
     updateMemory(progress, concept.id, result.score);
     result.languageMode = languageMode(progress, concept.id);
     saveProgress(studentId, progress);
+    // Tell the app what comes next in today's plan, so the session can move on by voice.
+    const todayLeft = buildPlan(progress).today.filter((t) => t.conceptId !== concept.id);
+    result.learned = isLearned(progress.memory, concept.id);
+    result.next = todayLeft[0] || null;
+    result.leftToday = todayLeft.length;
     return sendJson(res, 200, result);
   }
 
@@ -796,7 +1003,7 @@ async function handleApi(req, res, url) {
 
   // Learn first: the app explains the concept aloud before the student explains it back.
   if (req.method === 'GET' && url.pathname === '/api/learn') {
-    const concept = findConcept(url.searchParams.get('conceptId'));
+    const concept = findConcept(url.searchParams.get('conceptId'), loadProgress(studentId));
     if (!concept) return sendJson(res, 404, { error: 'Unknown concept' });
     const requested = url.searchParams.get('language');
     const language = LANGUAGES.includes(requested) ? requested : 'Hindi';
@@ -830,7 +1037,7 @@ async function handleApi(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/english') {
     const body = await readJsonBody(req);
-    const concept = findConcept(body.conceptId);
+    const concept = findConcept(body.conceptId, loadProgress(studentId));
     if (!concept) return sendJson(res, 404, { error: 'Unknown concept' });
     const sentence = String(body.sentence || '').slice(0, 500);
     if (!sentence.trim()) return sendJson(res, 400, { error: 'Empty sentence' });
@@ -843,7 +1050,7 @@ async function handleApi(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/recall') {
     const body = await readJsonBody(req);
-    const concept = findConcept(body.conceptId);
+    const concept = findConcept(body.conceptId, loadProgress(studentId));
     if (!concept) return sendJson(res, 404, { error: 'Unknown concept' });
     const answer = String(body.answer || '').slice(0, 2000);
     if (!answer.trim()) return sendJson(res, 400, { error: 'Empty answer' });
@@ -889,40 +1096,84 @@ async function handleApi(req, res, url) {
     }
 
     const missing = examQuestions(parsed);
-    const supported = parsed.class === 8 && /science/i.test(parsed.subject || '');
     if (missing.length) {
-      return sendJson(res, 200, { parsed, missing, saved: false, source, message: 'A few details are missing.' });
+      return sendJson(res, 200, { parsed, missing, saved: false, source, message: 'A few details are missing.', say: missing[0] });
     }
-    if (!supported) {
-      return sendJson(res, 200, {
-        parsed,
-        missing: [],
-        saved: false,
-        source,
-        message: 'This demo has Class 8 Science (Cell) only. Other subjects are next.',
-      });
+    if (parsed.examDate < todayKey()) {
+      return sendJson(res, 200, { parsed, missing: ['When is the exam? That date has passed.'], saved: false, source, message: 'That date has passed.', say: 'That date has passed. When is the exam?' });
     }
 
     const progress = loadProgress(studentId);
-    progress.exam = { ...parsed, setAt: Date.now() };
-    saveProgress(studentId, progress);
-    return sendJson(res, 200, {
-      parsed,
-      missing: [],
-      saved: true,
-      source,
-      message: `Saved. ${daysUntil(parsed.examDate)} days to go.`,
+    let conceptIds = builtInConceptIds(parsed);
+    let generated = false;
+    if (!conceptIds) {
+      // Not in the built-in syllabus: draft the concept list from the chapter names, if the AI key is set.
+      const hasTopics = parsed.topics && parsed.topics.length;
+      if (!API_KEY) {
+        const message = 'Without the AI key, I can plan Class 8 Science, chapters 1 to 13. Other classes and subjects need the AI key.';
+        return sendJson(res, 200, { parsed, missing: [], saved: false, source, message, say: message });
+      }
+      if (!hasTopics) {
+        const ask = 'Tell me the names of the chapters in this exam, so I can list every concept.';
+        return sendJson(res, 200, { parsed, missing: [ask], saved: false, source, message: 'I need the chapter names.', say: ask });
+      }
+      try {
+        const drafted = await claudeDraftConcepts(parsed);
+        if (!drafted.length) throw new Error('No concepts drafted');
+        progress.custom = (progress.custom || []).concat(drafted);
+        conceptIds = drafted.map((c) => c.id);
+        generated = true;
+      } catch (err) {
+        console.error(err.message);
+        const message = 'I could not build the concept list just now. Please try again.';
+        return sendJson(res, 200, { parsed, missing: [], saved: false, source, message, say: message });
+      }
+    }
+
+    // One exam per subject and date: describing it again replaces it. Other exams are kept.
+    const id = `${String(parsed.subject).toLowerCase()}-${parsed.class}-${parsed.examDate}`;
+    progress.exams = (progress.exams || []).filter((e) => e.id !== id);
+    progress.exams.push({
+      id,
+      class: parsed.class,
+      subject: parsed.subject,
+      chapters: generated ? null : parsed.chapters,
+      topics: generated ? parsed.topics : null,
+      examDate: parsed.examDate,
+      preparedPct: parsed.preparedPct ?? null,
+      conceptIds,
+      generated,
+      setAt: Date.now(),
     });
+    saveProgress(studentId, progress);
+    const plan = buildPlan(progress);
+    const say = planSummary(plan);
+    return sendJson(res, 200, { parsed, missing: [], saved: true, source, message: say, say, plan });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/exam-remove') {
+    const body = await readJsonBody(req);
+    const progress = loadProgress(studentId);
+    progress.exams = (progress.exams || []).filter((e) => e.id !== String(body.id || ''));
+    saveProgress(studentId, progress);
+    return sendJson(res, 200, { plan: buildPlan(progress) });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/plan') {
+    const plan = buildPlan(loadProgress(studentId));
+    return sendJson(res, 200, { ...plan, say: planSummary(plan) });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/due') {
-    const due = dueConcepts(loadProgress(studentId)).map((c) => ({ id: c.id, name: c.name }));
+    // Kept for older pages: today's items from the plan.
+    const due = buildPlan(loadProgress(studentId)).today.map((t) => ({ id: t.conceptId, name: t.name }));
     return sendJson(res, 200, { due });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/rapid-fire') {
-    const ids = rapidFireQueue(loadProgress(studentId));
-    return sendJson(res, 200, { questions: ids.map((id) => ({ conceptId: id, name: findConcept(id).name })) });
+    const progress = loadProgress(studentId);
+    const ids = rapidFireQueue(progress);
+    return sendJson(res, 200, { questions: ids.map((id) => ({ conceptId: id, name: findConcept(id, progress).name })) });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/dashboard') {
@@ -964,6 +1215,10 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Study partner on port ${PORT}. Grading: ${API_KEY ? 'Claude' : 'demo'}. Speech: ${SARVAM_KEY ? 'Sarvam' : 'browser'}.`);
+initStorage().then(() => {
+  server.listen(PORT, () => {
+    console.log(
+      `Study partner on port ${PORT}. Grading: ${API_KEY ? 'Claude' : 'demo'}. Speech: ${SARVAM_KEY ? 'Sarvam' : 'browser'}. Progress: ${store.kind}.`
+    );
+  });
 });

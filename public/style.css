@@ -365,3 +365,13 @@ header.top { position: relative; }
 .convo-log .bub.note { align-self: center; font-size: 13px; color: var(--muted); background: transparent; border: none; padding: 0; }
 #screen-explain .link { background: transparent; color: var(--accent); min-height: 44px; padding: 6px 10px; font-size: 15px; }
 #screen-explain #explain-replay { border: 1px solid var(--line); border-radius: 999px; padding: 6px 16px; }
+
+/* Setup: exams and the day-by-day study plan */
+#setup-plan .card { margin-top: 14px; }
+#setup-plan .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+#setup-plan .row b { font-weight: 600; text-align: right; }
+#setup-plan .row small { color: var(--muted); font-weight: 400; }
+#setup-plan .primary { width: 100%; min-height: 52px; margin-top: 12px; }
+#setup-plan .link { background: transparent; color: var(--accent); min-height: 0; padding: 2px 0; font-size: 13px; }
+#explain-chips { overflow-x: auto; flex-wrap: nowrap; }
+#explain-chips button { white-space: nowrap; flex: 0 0 auto; }

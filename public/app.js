@@ -108,6 +108,7 @@ async function speak(text, language = 'English', onDone = () => {}) {
       if (turn !== speakTurn) return; // something newer started, or the student tapped the mic
       player.src = url;
       player.onended = () => { URL.revokeObjectURL(url); onDone(); };
+      player.onerror = () => { URL.revokeObjectURL(url); onDone(); };
       await player.play();
       return;
     } catch (err) {
@@ -121,7 +122,17 @@ async function speak(text, language = 'English', onDone = () => {}) {
 function speakWithPhone(text, language, onDone) {
   if (!('speechSynthesis' in window)) return onDone();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.onend = onDone;
+  // Some phones never report that speech has ended, so the turn also ends on a timer.
+  const turn = speakTurn;
+  let finished = false;
+  const done = () => {
+    if (finished || turn !== speakTurn) return;
+    finished = true;
+    onDone();
+  };
+  utterance.onend = done;
+  utterance.onerror = done;
+  setTimeout(done, 3000 + text.length * 90);
   utterance.lang = language === 'English' ? 'en-IN' : (LANG_CODES[language] || 'en-IN');
   utterance.rate = 1;
   utterance.pitch = 1.05;
@@ -228,25 +239,48 @@ function handleHeard(prefix, heard) {
 
 // ---------- chapter and chips ----------
 
+// Loads everything the student must know (the scope) and today's plan.
 async function loadChapter() {
-  const res = await fetch('/api/chapter');
-  const chapter = await res.json();
+  const [chapter, plan] = await Promise.all([
+    fetch('/api/chapter').then((r) => r.json()),
+    fetch('/api/plan').then((r) => r.json()),
+  ]);
   state.concepts = chapter.concepts;
+  state.plan = plan;
   $('chapter-title').textContent = chapter.title;
   renderChips('explain');
   renderChips('recall');
+  renderPlanViews();
+}
+
+async function refreshPlan() {
+  try {
+    state.plan = await fetch('/api/plan').then((r) => r.json());
+    renderPlanViews();
+  } catch (err) {
+    // Keep the last plan if the server is unreachable.
+  }
+}
+
+// The chips show today's items from the study plan, not the whole syllabus.
+function chipConcepts() {
+  const ids = ((state.plan && state.plan.today) || []).map((t) => t.conceptId);
+  const list = ids.map((id) => state.concepts.find((c) => c.id === id)).filter(Boolean);
+  return list.length ? list : state.concepts.slice(0, 3);
 }
 
 function renderChips(prefix) {
   const wrap = $(`${prefix === 'explain' ? 'explain' : 'recall'}-chips`);
+  const list = chipConcepts();
   wrap.innerHTML = '';
-  state.concepts.forEach((concept, index) => {
+  list.forEach((concept) => {
     const button = document.createElement('button');
     button.textContent = concept.name;
+    button.classList.toggle('selected', concept.id === state[prefix].conceptId);
     button.addEventListener('click', () => selectConcept(prefix, concept.id));
     wrap.appendChild(button);
-    if (index === 0 && !state[prefix].conceptId) selectConcept(prefix, concept.id);
   });
+  if (list.length && !list.some((c) => c.id === state[prefix].conceptId)) selectConcept(prefix, list[0].id);
 }
 
 function selectConcept(prefix, conceptId) {
@@ -263,6 +297,7 @@ function selectConcept(prefix, conceptId) {
     $('explain-prompt').textContent = `Explain "${conceptName(conceptId)}" in your own words.`;
     $('hero-name').textContent = conceptName(conceptId);
     state.explain.followUp = '';
+    state.explain.turns = 0;
     clearLog();
     // Teach the concept only when the student is on the Explain screen.
     if ($('screen-explain').classList.contains('active')) showLearnFirst(conceptId);
@@ -309,22 +344,54 @@ async function submitAnswer(prefix, text) {
 }
 
 // The app answers aloud: one line of feedback, then a follow-up question. The mic is ready for the reply.
+// A concept gets an explanation and one follow-up. Then the session moves to the next item in today's plan.
 function renderExplain(result) {
+  const language = result.source === 'claude' ? state.language : 'English';
+  const feedback = result.feedback || result.gotRight || '';
   const maybe = (result.didYouMean || []).map((m) => `Did you mean ${m.term}?`).join(' ');
-  const line = `${result.feedback || result.gotRight} ${maybe} ${result.followUp}`.replace(/\s+/g, ' ').trim();
-  state.explain.followUp = result.followUp || '';
+  state.explain.turns = (state.explain.turns || 0) + 1;
   state.explain.promptedAt = Date.now();
-  appSay(line, result.source === 'claude' ? state.language : 'English');
   if (result.citation) addLog('note', `Based on: ${result.citation.concept}, ${result.citation.source}`);
+  refreshPlan();
+
+  const finished = (result.learned && state.explain.turns >= 2) || state.explain.turns >= 3;
+  if (finished && result.next) {
+    state.explain.followUp = '';
+    appSay(`${feedback} Next: ${result.next.name}.`, language, () => {
+      renderChips('explain');
+      selectConcept('explain', result.next.conceptId);
+    });
+    return;
+  }
+  if (finished && !result.next) {
+    state.explain.followUp = '';
+    appSay(`${feedback} That is everything for today. Well done.`, language);
+    return;
+  }
+  state.explain.followUp = result.followUp || '';
+  appSay(`${feedback} ${maybe} ${result.followUp || ''}`.replace(/\s+/g, ' ').trim(), language);
 }
 
 // Says a line aloud, shows it as a short caption, and keeps it in the conversation.
-function appSay(text, language) {
+// A teaching explanation (options.teaching) is taken off the screen once it has been spoken,
+// so the student explains from memory and cannot read the answer back.
+function appSay(text, language, then, options = {}) {
   state.explain.lastSaid = { text, language };
+  state.explain.teachingOnScreen = Boolean(options.teaching);
   $('explain-caption').textContent = text;
-  addLog('app', text);
+  addLog('app', options.teaching ? 'I explained the concept aloud. Tap "Hear it again" to listen once more.' : text);
   $('explain-status').textContent = 'Speaking…';
-  speak(text, language, () => { $('explain-status').textContent = 'Your turn. Tap the mic.'; });
+  speak(text, language, () => {
+    $('explain-status').textContent = 'Your turn. Tap the mic.';
+    hideTeaching();
+    if (then) then();
+  });
+}
+
+function hideTeaching() {
+  if (!state.explain.teachingOnScreen) return;
+  state.explain.teachingOnScreen = false;
+  $('explain-caption').textContent = 'Now explain it in your own words.';
 }
 
 function renderRecall(result) {
@@ -426,7 +493,7 @@ function insertExamScreen() {
         <button id="lang-save" type="button">Save</button>
         </div>
       </div>
-      <p class="prompt">Tell me about your exam, in your own words. For example: "I have a quarterly science exam on 12 December, we use this textbook, chapters 3 to 7, and I have prepared about 40 percent."</p>
+      <p class="prompt">Tell me about your exam. For example: "Class 8 science half-yearly exam on 28 December, chapters 5 to 10." You can add more than one exam.</p>
       <button id="setup-mic" class="mic" aria-label="Hold to speak">&#127897;</button>
       <p class="status" id="setup-status"></p>
       <p class="heard" id="setup-heard"></p>
@@ -435,6 +502,7 @@ function insertExamScreen() {
         <button type="submit">Save</button>
       </form>
       <div id="setup-result" class="result" hidden></div>
+      <div id="setup-plan"></div>
     </section>`);
   document.getElementById('setup-form').addEventListener('submit', (event) => {
     event.preventDefault();
@@ -474,35 +542,82 @@ function insertExamScreen() {
   attachPushToTalk('rapid');
 }
 
+// Exam setup by voice or text. If a detail is missing, the app asks for it and adds the answer to what was said before.
 async function submitSetup(text) {
   const status = $('setup-status');
   const box = $('setup-result');
+  const full = state.setup.draft ? `${state.setup.draft}. ${text}` : text;
   status.textContent = 'Reading your exam…';
   try {
     const res = await fetch('/api/exam-setup', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text, language: state.language }),
+      body: JSON.stringify({ text: full, language: state.language }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Request failed');
     status.textContent = '';
     box.hidden = false;
     if (data.missing.length) {
-      box.innerHTML = `<p class="fix">${escapeHtml(data.message)}</p>
-        <ul>${data.missing.map((q) => `<li>${escapeHtml(q)}</li>`).join('')}</ul>
-        <p class="note">Say or type the full description again, with the missing details.</p>`;
-      speak(data.missing[0]);
+      state.setup.draft = full;
+      box.innerHTML = `<p class="fix">${escapeHtml(data.missing[0])}</p>
+        <p class="note">Tap the mic and answer. I will remember the rest.</p>`;
     } else {
-      box.innerHTML = `<p class="good">${escapeHtml(data.message)}</p>
-        ${data.saved ? '<button data-go="dashboard">See my plan</button>' : ''}
-        <p class="note">${data.source === 'claude' ? 'Read by Claude.' : 'Read in demo mode (pattern matching).'}</p>`;
-      speak(data.message);
+      state.setup.draft = '';
+      box.innerHTML = `<p class="${data.saved ? 'good' : 'fix'}">${escapeHtml(data.message)}</p>`;
+      if (data.saved) await loadChapter();
     }
+    speak(data.say || data.message);
   } catch (err) {
     status.textContent = `Something went wrong: ${err.message}`;
   }
 }
+
+// Shows the plan on Setup and the count on the Today card.
+function renderPlanViews() {
+  const plan = state.plan;
+  if (!plan) return;
+  const learn = plan.today.filter((t) => t.kind === 'learn').length;
+  const review = plan.today.length - learn;
+  const todaySub = document.querySelector('.tint-exam .sub');
+  if (todaySub) {
+    todaySub.textContent = plan.today.length
+      ? `${learn} to learn, ${review} to review`
+      : 'Done for today. Well done.';
+  }
+  const box = document.getElementById('setup-plan');
+  if (!box) return;
+  const examRows = plan.exams.map((e) => `
+    <div class="row">
+      <span>${escapeHtml(e.subject)}, Class ${e.class}<br><small>${e.chapters ? `Chapters ${e.chapters[0]} to ${e.chapters[1]}` : escapeHtml((e.topics || []).join(', '))}${e.generated ? ' · list drafted by AI' : ''}</small></span>
+      <b>${e.examDate.slice(8)}/${e.examDate.slice(5, 7)} · ${e.daysLeft} days<br><small>${e.learned} of ${e.total} learned</small>
+      ${e.isDefault ? '' : `<button class="link" data-remove-exam="${escapeHtml(e.id)}">Remove</button>`}</b>
+    </div>`).join('');
+  const shown = plan.days.slice(0, 7);
+  const dayRows = shown.map((d) => `
+    <div class="row"><span>${d.day === 1 ? 'Today' : `Day ${d.day}`}<br><small>${d.date.slice(8)}/${d.date.slice(5, 7)}</small></span><b>${escapeHtml(d.concepts.join(', '))}</b></div>`).join('');
+  const more = plan.days.length - shown.length;
+  box.innerHTML = `
+    <div class="card">
+      <h3>My exams</h3>
+      ${plan.hasExam ? examRows : '<p class="muted">No exam yet. Tell me about your exam above. Until then, you can try Chapter 2.</p>'}
+    </div>
+    <div class="card">
+      <h3>My study plan</h3>
+      <p>${plan.totals.learned} of ${plan.totals.total} concepts learned. ${plan.quota} new concept${plan.quota === 1 ? '' : 's'} a day.${plan.heavy ? ' This is a heavy plan, so start today.' : ''}</p>
+      ${dayRows || '<p class="good">Every concept is learned. Keep reviewing.</p>'}
+      ${more > 0 ? `<p class="muted">Then ${more} more day${more === 1 ? '' : 's'} of new concepts, and ${plan.exams[0].revisionDays} day${plan.exams[0].revisionDays === 1 ? '' : 's'} of revision before the exam.</p>` : ''}
+      <p class="note">The plan updates every day. If you miss a day, the rest is spread over the days left.</p>
+      <button class="primary" data-go="today">Start today</button>
+    </div>`;
+}
+
+document.addEventListener('click', async (event) => {
+  const id = event.target.dataset && event.target.dataset.removeExam;
+  if (!id) return;
+  await fetch('/api/exam-remove', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) });
+  await loadChapter();
+});
 
 function renderExtra(d) {
   let card = document.getElementById('extra-card');
@@ -521,7 +636,9 @@ function renderExtra(d) {
       <li>Fluency (estimate): ${show(d.fluency, '/100')}</li>
       <li>English readiness: ${show(d.englishReadiness, '% of words in English')}</li>
       <li>English terms used so far: ${d.termsLearned}</li>
-      <li>Due for review today: ${d.due} concept${d.due === 1 ? '' : 's'}.</li>
+      <li>On today's plan: ${d.due} item${d.due === 1 ? '' : 's'}.</li>
+      <li>Strong at: ${d.strong && d.strong.length ? escapeHtml(d.strong.join(', ')) : 'nothing yet'}</li>
+      <li>Needs work: ${d.weak && d.weak.length ? escapeHtml(d.weak.join(', ')) : 'nothing yet'}</li>
       <li>${sparklineSvg(d.history)}</li>
       <li>Last 14 days: ${d.history.length ? d.history.map((h) => `${h.day.slice(5)} ${h.answers} answer${h.answers === 1 ? '' : 's'}, avg ${h.avgScore}`).join(' · ') : 'no answers yet'}</li>
       <li>${escapeHtml(d.exam.subject)}, Class ${d.exam.class}, ${d.daysLeft} days left${d.exam.preparedPct !== null ? `. You said you are ${d.exam.preparedPct}% prepared.` : '.'}</li>
@@ -551,7 +668,27 @@ async function setupAuth() {
     history.replaceState(null, '', '/');
   }
 
-  const me = await (await fetch('/api/me')).json().catch(() => ({}));
+  // Ask the server who this is. If the server is waking up or mid-update, keep trying:
+  // a failed check must never throw a signed-in student back to the sign-in page.
+  const hasSession = Boolean(localStorage.getItem('studyPartnerSession'));
+  let me = null;
+  for (let attempt = 0; attempt < (hasSession ? 8 : 2) && !me; attempt += 1) {
+    try {
+      const res = await fetch('/api/me');
+      if (res.ok) me = await res.json();
+    } catch (err) {
+      // Network error or a non-JSON "starting up" page: wait and retry.
+    }
+    if (!me) await new Promise((resolve) => setTimeout(resolve, 2500));
+  }
+  if (!me && hasSession) {
+    // Still unreachable: stay in the app. The next action will reach the server when it is back.
+    $('auth').innerHTML = '<p class="muted">Reconnecting…</p>';
+    show('home');
+    return;
+  }
+  me = me || {};
+  if (hasSession && !me.signedIn) localStorage.removeItem('studyPartnerSession');
   if (me.signedIn) {
     $('auth').innerHTML = `<p>Signed in as <strong>${escapeHtml(me.name)}</strong></p><button id="signout" class="link">Sign out</button>`;
     $('signout').addEventListener('click', signOut);
@@ -598,25 +735,20 @@ async function signOut() {
 // ---------- home: at-a-glance strip and the Continue card ----------
 
 async function renderHome() {
-  try {
-    const [d, due] = await Promise.all([
-      fetch('/api/dashboard').then((r) => r.json()),
-      fetch('/api/due').then((r) => r.json()),
-    ]);
-    const next = due.due[0] || state.concepts[0];
-    $('hero-name').textContent = next ? next.name : 'Start with any concept';
-  } catch (err) {
-    $('hero-name').textContent = 'Start studying';
-  }
+  await refreshPlan();
 }
 
 // ---------- continue, rapid-fire, did-you-mean ----------
 
+// Today: start with the first item on today's plan.
 async function continueStudy() {
-  const res = await fetch('/api/due');
-  const data = await res.json();
-  const next = data.due[0] || state.concepts[0];
-  if (next) selectConcept('explain', next.id);
+  await refreshPlan();
+  renderChips('explain');
+  const first = chipConcepts()[0];
+  if (first) {
+    state.explain.conceptId = null;
+    selectConcept('explain', first.id);
+  }
   show('explain');
 }
 
@@ -712,8 +844,9 @@ let stopFallback = null;
 function toggleMic(prefix, mic, start, stop) {
   // While the last answer is being sent, ignore taps; a tap now would start a second recording.
   if (mic.classList.contains('busy')) return;
-  // The app stops talking the moment the student wants to speak.
+  // The app stops talking the moment the student wants to speak, and the explanation leaves the screen.
   stopSpeaking();
+  hideTeaching();
   if (stopFallback) {
     stopFallback();
     return;
@@ -907,7 +1040,7 @@ async function showLearnFirst(conceptId) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not load');
     if (state.explain.conceptId !== conceptId) return; // the student moved to another concept
-    appSay(data.say, data.lang);
+    appSay(data.say, data.lang, null, { teaching: !data.learned });
   } catch (err) {
     appSay('Explain it to me in your own words.', 'English');
   }

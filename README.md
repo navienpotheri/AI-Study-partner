@@ -51,13 +51,12 @@ Each browser gets its own student id, kept in local storage. Progress, the exam 
 ## Not built yet
 
 - Mixed-language key terms are checked against a small list of regional words (`data/aliases.json`). Those translations need review by a Class 8 teacher before the pilot.
-- Only one chapter (Class 8 Science, Cell) is included.
 - The home screen layout is a first version. A redesign is planned.
 - Voice has not been tested with real students. Test it in Chrome or Edge before you rely on it.
 
 ## Project layout
 
-- `server.js`: the server, grading (demo and Claude), Sarvam speech proxy, spaced review, and dashboard. No npm dependencies.
+- `server.js`: the server, grading (demo and Claude), Sarvam speech proxy, spaced review, and dashboard. One npm dependency (pg, for the optional database).
 - `data/class8-science.json`: the preloaded chapter. `data/aliases.json`: regional words for key terms.
 - `public/`: the web app (HTML, CSS, plain JavaScript).
 - `docker-compose.yml` and `Dockerfile`: the one-command setup.
@@ -82,3 +81,20 @@ Only a hashed email address is stored, and each link works once and expires afte
 ## For judges: demo sign-in
 
 To try the app, enter any first name and email address on the sign-in page and tap **Send me a link**. You are signed in straight away, with no email to check. The live link runs with `DEMO_SIGNIN=true`. Real students, once the app is in pilot, use the email link instead.
+
+## Study plan and syllabus
+
+- The app includes every concept of NCERT Class 8 Science ("Curiosity", 13 chapters, 126 concepts) in `data/syllabus-class8-science.json`. The list follows each chapter's section headings and its "Snapshots" summary. The definitions are short paraphrases and have not been checked by a teacher. `tools/build-syllabus.js` rebuilds the file.
+- In **Setup**, the student describes one or more exams by voice or text ("Class 8 science half-yearly on 28 December, chapters 5 to 10"). The app builds a plan that covers every concept in those chapters, keeps the last days before each exam for revision, and sets a daily number of new concepts. The plan is worked out fresh each day, so a missed day is spread over the days left.
+- **Today** on the home screen starts a spoken session: the app explains a concept aloud, the explanation leaves the screen, the student explains it back from memory, answers one follow-up, and the session moves to the next concept.
+- For other classes and subjects, the student names the chapters and Claude drafts the concept list (needs `ANTHROPIC_API_KEY`). Drafted lists are marked as AI-made.
+
+## Voice
+
+With `SARVAM_API_KEY` set, the app listens with Sarvam speech-to-text and speaks with Sarvam text-to-speech (`SARVAM_SPEAKER`, default `priya`). Without it, the app uses the browser's own speech features.
+
+## Storage and sign-in settings
+
+- `DATABASE_URL`: a Postgres connection string (for example from Neon). Progress is then kept in the database and survives restarts. Without it, progress is kept in `data/progress.json`.
+- `SESSION_SECRET`: a long random string. Sign-ins then survive restarts.
+- `DEMO_SIGNIN=true`: name and email sign you in with no email link. This is also the behaviour when no email key is set, so the app works with no keys at all.

@@ -1,4 +1,4 @@
-﻿services:
+services:
   study-partner:
     build: .
     ports:
@@ -10,6 +10,9 @@
       - SARVAM_API_KEY=${SARVAM_API_KEY:-}
       - SARVAM_MODEL=${SARVAM_MODEL:-saaras:v4}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - DEMO_SIGNIN=${DEMO_SIGNIN:-}
+      - SESSION_SECRET=${SESSION_SECRET:-}
+      - DATABASE_URL=${DATABASE_URL:-}
       - MAIL_FROM=${MAIL_FROM:-Study Partner <onboarding@resend.dev>}
     volumes:
       # Keeps student progress on the host between restarts.
