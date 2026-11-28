@@ -216,6 +216,8 @@ function selectConcept(prefix, conceptId) {
     $('hero-name').textContent = conceptName(conceptId);
     $('cell-title').textContent = conceptName(conceptId);
     $('cell-def').textContent = (state.concepts.find((c) => c.id === conceptId) || {}).definition || '';
+    clearLog();
+    showLearnFirst(conceptId);
   } else {
     $('recall-prompt').textContent = `Say the definition of "${conceptName(conceptId)}" from memory.`;
   }
@@ -655,6 +657,8 @@ function rapidSummary() {
 let stopFallback = null;
 
 function toggleMic(prefix, mic, start, stop) {
+  // While the last answer is being sent, ignore taps; a tap now would start a second recording.
+  if (mic.classList.contains('busy')) return;
   if (stopFallback) {
     stopFallback();
     return;
@@ -722,6 +726,8 @@ function attachSarvamPushToTalk(prefix) {
         transcribe(prefix, new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
       };
       recorder.start();
+      // Sarvam accepts at most 30 seconds per recording, so stop at 25 and keep the answer short.
+      setTimeout(() => { if (recorder && recorder.state === 'recording') stop(); }, 25000);
       mic.classList.add('listening');
       $(`${prefix}-status`).textContent = 'Listening… tap the mic again when you finish.';
     } catch (err) {
@@ -823,6 +829,29 @@ function sparklineSvg(history) {
         ${dots}
       </svg>
     </div>`;
+}
+
+// Learn first: the app explains the concept, then the student explains it back.
+// A concept the student has already explained well is not taught again.
+async function showLearnFirst(conceptId) {
+  try {
+    const res = await fetch(`/api/learn?conceptId=${encodeURIComponent(conceptId)}&language=${encodeURIComponent(state.language)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not load');
+    if (data.learned) {
+      addLog('app', 'You know this one. Explain it back in your own words.');
+    } else {
+      addLog('app', `Learn first: ${data.text}`);
+      speak(data.text);
+    }
+  } catch (err) {
+    addLog('app', 'Explain it back in your own words.');
+  }
+}
+
+function clearLog() {
+  const log = $('explain-log');
+  if (log) log.innerHTML = '';
 }
 
 // Conversation log under Explain: every app reply and every student reply appears as text.

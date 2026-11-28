@@ -78,14 +78,28 @@ function saveProgress(studentId, progress) {
   }
 }
 
+// Sessions are signed tokens, so they survive a restart or redeploy as long as SESSION_SECRET stays the same.
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+
+function makeToken(data) {
+  const body = Buffer.from(JSON.stringify(data)).toString('base64url');
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
 function sessionFrom(req) {
   const token = String(req.headers['x-session'] || '');
-  const session = sessions.get(token);
-  if (!session) return null;
-  if (Date.now() - session.createdAt > SESSION_DAYS * 86400000) {
-    sessions.delete(token);
+  const [body, sig] = token.split('.');
+  if (!body || !sig) return null;
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest('base64url');
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  let session;
+  try {
+    session = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+  } catch (err) {
     return null;
   }
+  if (Date.now() - session.createdAt > SESSION_DAYS * 86400000) return null;
   return session;
 }
 
@@ -628,8 +642,7 @@ async function handleApi(req, res, url) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJson(res, 400, { error: 'Enter a valid email address.' });
     const emailHash = sha256(email);
     if (DEMO_SIGNIN) {
-      const demoToken = crypto.randomBytes(24).toString('hex');
-      sessions.set(demoToken, { studentId: `d-${emailHash.slice(0, 24)}`, name, createdAt: Date.now() });
+      const demoToken = makeToken({ studentId: `d-${emailHash.slice(0, 24)}`, name, createdAt: Date.now() });
       return sendJson(res, 200, { token: demoToken, name, demo: true });
     }
     if (!withinSendLimit(emailHash)) {
@@ -655,8 +668,7 @@ async function handleApi(req, res, url) {
     if (!pending || pending.expires < Date.now()) {
       return sendJson(res, 401, { error: 'This link has expired or was already used. Request a new one.' });
     }
-    const sessionToken = crypto.randomBytes(24).toString('hex');
-    sessions.set(sessionToken, {
+    const sessionToken = makeToken({
       studentId: `e-${pending.emailHash.slice(0, 24)}`,
       name: pending.name,
       createdAt: Date.now(),
@@ -735,6 +747,29 @@ async function handleApi(req, res, url) {
     result.languageMode = languageMode(progress, concept.id);
     saveProgress(studentId, progress);
     return sendJson(res, 200, result);
+  }
+
+  // Learn first: the app explains the concept before the student explains it back.
+  if (req.method === 'GET' && url.pathname === '/api/learn') {
+    const concept = findConcept(url.searchParams.get('conceptId'));
+    if (!concept) return sendJson(res, 404, { error: 'Unknown concept' });
+    const requested = url.searchParams.get('language');
+    const language = LANGUAGES.includes(requested) ? requested : 'Hindi';
+    const memory = loadProgress(studentId).memory || {};
+    const learned = Boolean(memory[concept.id] && memory[concept.id].lastResult === 'correct');
+    let text = `${concept.definition} Key words: ${concept.keyTerms.join(', ')}.`;
+    if (API_KEY && !learned) {
+      try {
+        const system =
+          `You are a patient older sibling teaching a Class 8 student in ${language}. Explain the concept in three short sentences. ` +
+          'Keep the key words in English. Never shame a mistake. Reply ONLY with JSON: {"text":"..."}';
+        const result = await claudeJson(system, `Concept: ${concept.name}. Reference: ${concept.definition}`);
+        if (result.text) text = result.text;
+      } catch (err) {
+        console.error(err.message);
+      }
+    }
+    return sendJson(res, 200, { text, learned, source: API_KEY ? 'claude' : 'demo' });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/english') {
