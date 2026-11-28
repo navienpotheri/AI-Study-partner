@@ -690,7 +690,12 @@ function listenWithPhoneSpeech(prefix, mic) {
         ? "I didn't hear anything. Tap the mic and speak, or type below."
         : 'The microphone did not work. Try again, or type below.';
   };
-  recognizer.onend = () => {
+  // Some phones (iPhones especially) never report that listening has ended.
+  // So finishing is forced: a second tap always ends the turn within 1.5 seconds.
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
     stopFallback = null;
     mic.classList.remove('listening');
     if (errored) {
@@ -699,9 +704,17 @@ function listenWithPhoneSpeech(prefix, mic) {
     }
     handleHeard(prefix, heard);
   };
+  recognizer.onend = finish;
   stopFallback = () => {
+    status.textContent = 'Processing…';
     try { recognizer.stop(); } catch (err) { /* already stopped */ }
+    setTimeout(() => {
+      try { recognizer.abort(); } catch (err) { /* already stopped */ }
+      finish();
+    }, 1500);
   };
+  // Never listen for more than 25 seconds.
+  setTimeout(() => { if (!done && stopFallback) stopFallback(); }, 25000);
   mic.classList.add('listening');
   status.textContent = 'Listening… tap the mic again when you finish.';
   recognizer.start();
