@@ -347,15 +347,18 @@ async function claudeJson(system, user) {
   return JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
 }
 
-async function claudeGradeExplain(concept, answer, language) {
+async function claudeGradeExplain(concept, answer, language, lastQuestion) {
   const system =
-    'You are a patient older sibling tutoring an Indian government school student in Class 8 Science. ' +
+    'You are a warm older sibling tutoring an Indian government school student in Class 8 Science, by voice. ' +
     `The student explains in ${language}; exam terms may be in English. Grade the MEANING, never the ` +
     'pronunciation or grammar. Accept key terms in either language. Never give the answer directly; guide them. ' +
+    `Write "feedback" and "followUp" the way people really talk in ${language}: simple everyday spoken words in ${language} script, ` +
+    'with science words kept in English. They will be read aloud, so use short sentences and no symbols. ' +
     'Reply ONLY with JSON: {"score":0-100,"feedback":"one honest, kind sentence on how the explanation went, with no numbers",' +
     '"gotRight":"one short sentence","fix":"the specific misconception or missing idea, one short sentence",' +
     '"followUp":"one question that targets the misconception, under 20 words"}. Keep every sentence short.';
   const user =
+    (lastQuestion ? `Your last question to the student (they may be answering it): ${lastQuestion}\n` : '') +
     `Concept: ${concept.name}\n` +
     `Reference definition (for you only, do not reveal): ${concept.definition}\n` +
     `Key terms: ${concept.keyTerms.join(', ')}\n` +
@@ -411,6 +414,32 @@ async function sarvamTranscribe(audio, contentType, languageCode) {
     language: data.language_code || languageCode,
     probability: data.language_probability ?? null,
   };
+}
+
+// ---------- Sarvam text-to-speech: the app's own voice (needs SARVAM_API_KEY) ----------
+
+const SARVAM_TTS_MODEL = process.env.SARVAM_TTS_MODEL || 'bulbul:v3';
+const SARVAM_SPEAKER = process.env.SARVAM_SPEAKER || 'priya';
+
+async function sarvamSpeak(text, languageCode) {
+  const res = await fetch('https://api.sarvam.ai/text-to-speech', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'api-subscription-key': SARVAM_KEY },
+    body: JSON.stringify({
+      text,
+      language_code: languageCode,
+      model: SARVAM_TTS_MODEL,
+      speaker: SARVAM_SPEAKER,
+      output_audio_codec: 'mp3',
+    }),
+  });
+  if (!res.ok) {
+    const reason = await res.text().catch(() => '');
+    console.error(`Sarvam voice failed with status ${res.status}: ${reason.slice(0, 300)}`);
+    throw new Error(`Sarvam voice failed with status ${res.status}`);
+  }
+  const data = await res.json();
+  return Buffer.from((data.audios || []).join(''), 'base64');
 }
 
 // ---------- exam setup (by voice or text) ----------
@@ -613,6 +642,7 @@ async function handleApi(req, res, url) {
       mode: API_KEY ? 'claude' : 'demo',
       model: API_KEY ? MODEL : null,
       stt: SARVAM_KEY ? 'sarvam' : 'browser',
+      tts: SARVAM_KEY ? 'sarvam' : 'browser',
       sttModel: SARVAM_KEY ? SARVAM_MODEL : null,
       languages: LANGUAGES,
     });
@@ -715,7 +745,7 @@ async function handleApi(req, res, url) {
     let result;
     if (API_KEY) {
       try {
-        result = await claudeGradeExplain(concept, answer, language);
+        result = await claudeGradeExplain(concept, answer, language, String(body.followUp || '').slice(0, 300));
       } catch (err) {
         console.error(err.message);
         result = { ...demoGradeExplain(concept, answer), source: 'demo-fallback' };
@@ -749,7 +779,22 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, result);
   }
 
-  // Learn first: the app explains the concept before the student explains it back.
+  // The app's voice: turns a reply into speech with Sarvam, so it sounds natural in Indian languages.
+  if (req.method === 'POST' && url.pathname === '/api/speak') {
+    if (!SARVAM_KEY) return sendJson(res, 404, { error: 'Voice service is not configured.' });
+    const body = await readJsonBody(req);
+    const text = String(body.text || '').trim().slice(0, 700);
+    if (!text) return sendJson(res, 400, { error: 'Nothing to say' });
+    try {
+      const audio = await sarvamSpeak(text, LANG_CODES[body.language] || 'en-IN');
+      res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' });
+      return res.end(audio);
+    } catch (err) {
+      return sendJson(res, 502, { error: 'Voice service unavailable.' });
+    }
+  }
+
+  // Learn first: the app explains the concept aloud before the student explains it back.
   if (req.method === 'GET' && url.pathname === '/api/learn') {
     const concept = findConcept(url.searchParams.get('conceptId'));
     if (!concept) return sendJson(res, 404, { error: 'Unknown concept' });
@@ -757,19 +802,30 @@ async function handleApi(req, res, url) {
     const language = LANGUAGES.includes(requested) ? requested : 'Hindi';
     const memory = loadProgress(studentId).memory || {};
     const learned = Boolean(memory[concept.id] && memory[concept.id].lastResult === 'correct');
-    let text = `${concept.definition} Key words: ${concept.keyTerms.join(', ')}.`;
-    if (API_KEY && !learned) {
+    let say = learned
+      ? `You know ${concept.name}. Explain it to me in your own words.`
+      : `${concept.definition} Now you explain it to me, in your own words.`;
+    let lang = 'English';
+    if (API_KEY) {
       try {
         const system =
-          `You are a patient older sibling teaching a Class 8 student in ${language}. Explain the concept in three short sentences. ` +
-          'Keep the key words in English. Never shame a mistake. Reply ONLY with JSON: {"text":"..."}';
+          `You are a warm older sibling helping a Class 8 student who speaks ${language} at home. ` +
+          `Speak the way people really talk in ${language}: simple everyday spoken words in ${language} script, never formal textbook language. ` +
+          'Keep science words in English. This will be read aloud, so use short sentences and no lists or symbols. ' +
+          (learned
+            ? 'The student already knows this concept. In one sentence, ask them to explain it in their own words. '
+            : 'Explain the concept in two or three short sentences with one everyday example, then ask the student to explain it back in their own words. ') +
+          'Reply ONLY with JSON: {"text":"..."}';
         const result = await claudeJson(system, `Concept: ${concept.name}. Reference: ${concept.definition}`);
-        if (result.text) text = result.text;
+        if (result.text) {
+          say = result.text;
+          lang = language;
+        }
       } catch (err) {
         console.error(err.message);
       }
     }
-    return sendJson(res, 200, { text, learned, source: API_KEY ? 'claude' : 'demo' });
+    return sendJson(res, 200, { say, lang, learned, source: lang === 'English' ? 'demo' : 'claude' });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/english') {

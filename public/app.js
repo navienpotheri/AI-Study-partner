@@ -57,6 +57,8 @@ function show(screen) {
   document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.go === screen));
   document.body.classList.toggle('no-tabs', screen === 'signin');
   document.body.classList.toggle('fullscreen', screen === 'explain');
+  stopSpeaking();
+  if (screen === 'explain' && state.explain.conceptId) showLearnFirst(state.explain.conceptId);
   if (screen === 'home') renderHome();
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === `screen-${screen}`));
   if (screen === 'dashboard') loadDashboard();
@@ -72,10 +74,55 @@ document.addEventListener('click', (event) => {
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-function speak(text) {
-  if (!('speechSynthesis' in window) || !text) return;
+// The app's voice. Uses Sarvam's natural voice when the server has it, and the phone's voice otherwise.
+// One audio player is reused, and "unlocked" on the first tap, because phones block sound that no tap started.
+const player = new Audio();
+let playerUnlocked = false;
+let speakTurn = 0;
+document.addEventListener('pointerdown', () => {
+  if (playerUnlocked) return;
+  playerUnlocked = true;
+  player.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+  player.play().catch(() => {});
+}, { capture: true });
+
+function stopSpeaking() {
+  speakTurn += 1;
+  try { player.pause(); } catch (err) { /* nothing playing */ }
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+async function speak(text, language = 'English', onDone = () => {}) {
+  if (!text) return onDone();
+  stopSpeaking();
+  const turn = speakTurn;
+  if (state.tts === 'sarvam') {
+    try {
+      const res = await nativeFetch('/api/speak', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text, language }),
+      });
+      if (!res.ok) throw new Error('voice failed');
+      const url = URL.createObjectURL(await res.blob());
+      if (turn !== speakTurn) return; // something newer started, or the student tapped the mic
+      player.src = url;
+      player.onended = () => { URL.revokeObjectURL(url); onDone(); };
+      await player.play();
+      return;
+    } catch (err) {
+      if (turn !== speakTurn) return;
+      // Fall through to the phone's voice.
+    }
+  }
+  speakWithPhone(text, language, onDone);
+}
+
+function speakWithPhone(text, language, onDone) {
+  if (!('speechSynthesis' in window)) return onDone();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = LANG_CODES[state.language] || 'en-IN';
+  utterance.onend = onDone;
+  utterance.lang = language === 'English' ? 'en-IN' : (LANG_CODES[language] || 'en-IN');
   utterance.rate = 1;
   utterance.pitch = 1.05;
   // Prefer a natural-sounding voice for the language, when the device has one.
@@ -167,6 +214,7 @@ function handleHeard(prefix, heard) {
     speak("I didn't catch that, please say it again.");
     if (mode.failures >= MAX_VOICE_FAILURES) {
       status.textContent = 'Having trouble? Type your answer below.';
+      if (prefix === 'explain') $('explain-form').hidden = false;
       $(`${prefix}-text`).focus();
     }
     return;
@@ -214,10 +262,10 @@ function selectConcept(prefix, conceptId) {
   if (prefix === 'explain') {
     $('explain-prompt').textContent = `Explain "${conceptName(conceptId)}" in your own words.`;
     $('hero-name').textContent = conceptName(conceptId);
-    $('cell-title').textContent = conceptName(conceptId);
-    $('cell-def').textContent = (state.concepts.find((c) => c.id === conceptId) || {}).definition || '';
+    state.explain.followUp = '';
     clearLog();
-    showLearnFirst(conceptId);
+    // Teach the concept only when the student is on the Explain screen.
+    if ($('screen-explain').classList.contains('active')) showLearnFirst(conceptId);
   } else {
     $('recall-prompt').textContent = `Say the definition of "${conceptName(conceptId)}" from memory.`;
   }
@@ -246,6 +294,7 @@ async function submitAnswer(prefix, text) {
         conceptId,
         answer: text,
         language: state.language,
+        followUp: prefix === 'explain' ? state.explain.followUp : undefined,
         meta: prefix === 'explain' ? speechMeta(text, state[prefix].promptedAt) : undefined,
       }),
     });
@@ -259,20 +308,23 @@ async function submitAnswer(prefix, text) {
   }
 }
 
+// The app answers aloud: one line of feedback, then a follow-up question. The mic is ready for the reply.
 function renderExplain(result) {
-  const box = $('explain-result');
-  box.hidden = false;
-  box.innerHTML = `
-    <p class="good">${escapeHtml(result.feedback || result.gotRight)}</p>
-    <p><strong>${escapeHtml(result.followUp)}</strong></p>
-    ${result.citation ? `<p class="note">Based on: ${escapeHtml(result.citation.concept)}, ${escapeHtml(result.citation.source)}</p>` : ''}
-    ${didYouMeanHtml(result)}
-    ${result.languageMode ? `<p class="note">Next answer, speak in: ${languageLabel(result.languageMode)}</p>` : ''}
-    <p class="note">${result.source === 'claude' ? 'Graded by Claude.' : 'Demo mode: graded by keywords, no AI key set.'}</p>`;
-  box.insertAdjacentHTML('beforeend', englishBoxHtml());
-  const line = `${result.feedback || result.gotRight} ${result.followUp}`;
-  addLog('app', line);
-  speak(line);
+  const maybe = (result.didYouMean || []).map((m) => `Did you mean ${m.term}?`).join(' ');
+  const line = `${result.feedback || result.gotRight} ${maybe} ${result.followUp}`.replace(/\s+/g, ' ').trim();
+  state.explain.followUp = result.followUp || '';
+  state.explain.promptedAt = Date.now();
+  appSay(line, result.source === 'claude' ? state.language : 'English');
+  if (result.citation) addLog('note', `Based on: ${result.citation.concept}, ${result.citation.source}`);
+}
+
+// Says a line aloud, shows it as a short caption, and keeps it in the conversation.
+function appSay(text, language) {
+  state.explain.lastSaid = { text, language };
+  $('explain-caption').textContent = text;
+  addLog('app', text);
+  $('explain-status').textContent = 'Speaking…';
+  speak(text, language, () => { $('explain-status').textContent = 'Your turn. Tap the mic.'; });
 }
 
 function renderRecall(result) {
@@ -288,7 +340,8 @@ function renderRecall(result) {
     <p class="good">${escapeHtml(result.feedback || '')}</p>
     ${missing}${hint}${didYouMeanHtml(result)}
     <p class="note">${result.source === 'claude' ? 'Graded by Claude.' : 'Demo mode: graded by keywords, no AI key set.'}</p>`;
-  speak(result.passed ? 'Well recalled.' : `Hint. ${result.hint || ''}`);
+  if (result.passed) speak('Well recalled.');
+  else speak(result.hint || 'Try once more.', result.source === 'claude' ? state.language : 'English');
 }
 
 function escapeHtml(value) {
@@ -659,6 +712,8 @@ let stopFallback = null;
 function toggleMic(prefix, mic, start, stop) {
   // While the last answer is being sent, ignore taps; a tap now would start a second recording.
   if (mic.classList.contains('busy')) return;
+  // The app stops talking the moment the student wants to speak.
+  stopSpeaking();
   if (stopFallback) {
     stopFallback();
     return;
@@ -851,16 +906,29 @@ async function showLearnFirst(conceptId) {
     const res = await fetch(`/api/learn?conceptId=${encodeURIComponent(conceptId)}&language=${encodeURIComponent(state.language)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not load');
-    if (data.learned) {
-      addLog('app', 'You know this one. Explain it back in your own words.');
-    } else {
-      addLog('app', `Learn first: ${data.text}`);
-      speak(data.text);
-    }
+    if (state.explain.conceptId !== conceptId) return; // the student moved to another concept
+    appSay(data.say, data.lang);
   } catch (err) {
-    addLog('app', 'Explain it back in your own words.');
+    appSay('Explain it to me in your own words.', 'English');
   }
 }
+
+$('explain-replay').addEventListener('click', () => {
+  const last = state.explain.lastSaid;
+  if (!last) return;
+  $('explain-status').textContent = 'Speaking…';
+  speak(last.text, last.language, () => { $('explain-status').textContent = 'Your turn. Tap the mic.'; });
+});
+$('explain-show-text').addEventListener('click', () => {
+  const log = $('explain-log');
+  log.hidden = !log.hidden;
+  $('explain-show-text').textContent = log.hidden ? 'Show conversation' : 'Hide conversation';
+});
+$('explain-type-toggle').addEventListener('click', () => {
+  const form = $('explain-form');
+  form.hidden = !form.hidden;
+  if (!form.hidden) $('explain-text').focus();
+});
 
 function clearLog() {
   const log = $('explain-log');
@@ -871,7 +939,7 @@ function clearLog() {
 function addLog(role, text) {
   const log = $('explain-log');
   if (!log || !text) return;
-  log.insertAdjacentHTML('beforeend', `<div class="bub ${role === 'me' ? 'me' : 'app'}">${escapeHtml(text)}</div>`);
+  log.insertAdjacentHTML('beforeend', `<div class="bub ${role === 'me' ? 'me' : role === 'note' ? 'note' : 'app'}">${escapeHtml(text)}</div>`);
   log.scrollTop = log.scrollHeight;
 }
 
@@ -911,6 +979,7 @@ document.addEventListener('change', (event) => {
     const res = await fetch('/api/status');
     const status = await res.json();
     state.stt = status.stt;
+    state.tts = status.tts;
     state.mode = status.mode;
   } catch (err) {
     // The app still works without the status check.

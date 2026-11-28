@@ -340,3 +340,28 @@ header.top { position: relative; }
 #screen-explain .mic-big.busy { opacity: 0.6; }
 #screen-explain .mic-hint { text-align: center; margin: 4px 0 6px; color: var(--muted); font-size: 14px; }
 #screen-explain .ex-bar { flex-direction: row; }
+
+/* Explain, voice-first: the mic is the screen. Captions are short; text is optional. */
+#screen-explain.active { overflow-y: auto; gap: 8px; }
+#screen-explain .voice-stage { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 8px 4px; text-align: center; }
+#screen-explain .caption { margin: 0; font-size: 19px; line-height: 1.45; max-width: 34ch; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+#screen-explain .mic-hero {
+  flex: 0 0 auto; width: 184px; height: 184px; border-radius: 50%; padding: 0; margin: 10px 0 4px;
+  font-size: 76px; line-height: 1; background: var(--accent); color: var(--accent-ink);
+  box-shadow: 0 0 0 12px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+#screen-explain .mic-hero.listening { background: #c0392b; color: #fff; animation: mic-pulse 1.2s ease-out infinite; }
+#screen-explain .mic-hero.busy { opacity: 0.55; }
+@keyframes mic-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.45); }
+  100% { box-shadow: 0 0 0 30px rgba(192, 57, 43, 0); }
+}
+@media (prefers-reduced-motion: reduce) { #screen-explain .mic-hero.listening { animation: none; } }
+#screen-explain .voice-stage .status { margin: 0; font-size: 17px; font-weight: 600; color: var(--ink); min-height: 1.4em; }
+#screen-explain .voice-stage .heard { margin: 0; font-size: 15px; color: var(--muted); font-style: italic; max-width: 34ch; }
+#screen-explain .ex-foot { display: flex; justify-content: center; gap: 22px; flex: 0 0 auto; }
+#screen-explain #explain-log { flex: 0 0 auto; max-height: 30vh; overflow-y: auto; }
+#screen-explain .convo-log[hidden], #screen-explain .ex-bar[hidden] { display: none; }
+.convo-log .bub.note { align-self: center; font-size: 13px; color: var(--muted); background: transparent; border: none; padding: 0; }
+#screen-explain .link { background: transparent; color: var(--accent); min-height: 44px; padding: 6px 10px; font-size: 15px; }
+#screen-explain #explain-replay { border: 1px solid var(--line); border-radius: 999px; padding: 6px 16px; }

@@ -35,29 +35,33 @@
       </div>
     </section>
 
-    <!-- Explain: a conversation. Replies come in as text; type or speak from the bar at the bottom. -->
+    <!-- Explain: a spoken conversation. The app talks, the student answers with the mic. Text is optional. -->
     <section id="screen-explain" class="screen">
       <div class="ex-top">
         <button class="back" data-go="home">&larr; Back</button>
         <span class="concept-tag" id="hero-name">Cell</span>
       </div>
       <div class="chips" id="explain-chips"></div>
-      <div class="cell-card">
-        <small>Concept</small>
-        <strong id="cell-title">Cell</strong>
-        <p id="cell-def" class="def"></p>
+
+      <div class="voice-stage">
+        <p id="explain-caption" class="caption"></p>
+        <button id="explain-replay" class="link" type="button">&#128266; Hear it again</button>
+        <button id="explain-mic" class="mic-hero" type="button" aria-label="Tap to speak">&#127897;</button>
+        <p class="status" id="explain-status">Tap the mic to answer</p>
+        <p class="heard" id="explain-heard"></p>
       </div>
-      <p id="explain-prompt" class="prompt" hidden></p>
-      <div id="explain-log" class="convo-log"></div>
-      <div id="explain-result" class="result" hidden></div>
-      <p class="status" id="explain-status"></p>
-      <p class="heard" id="explain-heard"></p>
-      <button id="explain-mic" class="mic-big" type="button" aria-label="Tap to speak">&#127897;</button>
-      <p class="mic-hint">Tap, speak, then tap again to send.</p>
-      <form id="explain-form" class="ex-bar">
-        <input id="explain-text" type="text" placeholder="Or type your answer here" autocomplete="off">
+
+      <div class="ex-foot">
+        <button id="explain-show-text" class="link" type="button">Show conversation</button>
+        <button id="explain-type-toggle" class="link" type="button">Type instead</button>
+      </div>
+      <div id="explain-log" class="convo-log" hidden></div>
+      <form id="explain-form" class="ex-bar" hidden>
+        <input id="explain-text" type="text" placeholder="Type your answer here" autocomplete="off">
         <button type="submit" class="send">Send</button>
       </form>
+      <div id="explain-result" hidden></div>
+      <p id="explain-prompt" hidden></p>
     </section>
     <!-- Recall -->
     <section id="screen-recall" class="screen">
